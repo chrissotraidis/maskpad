@@ -1,0 +1,31 @@
+diff --git a/ZAPD/CMakeLists.txt b/ZAPD/CMakeLists.txt
+index ab7ab7e..9ea391c 100644
+--- a/ZAPD/CMakeLists.txt
++++ b/ZAPD/CMakeLists.txt
+@@ -337,7 +337,7 @@ endif()
+ # Compile and link options
+ ################################################################################
+ 
+-if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
++if (CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS")
+ 	set(CMAKE_FIND_FRAMEWORK LAST)
+ endif()
+ find_package(PNG REQUIRED)
+@@ -422,7 +422,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU|Clang|AppleClang")
+ 		-pthread
+ 	)
+ 
+-    if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
++    if (CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS")
+         target_link_options(${PROJECT_NAME} PUBLIC
+             -pthread
+         )
+@@ -453,7 +453,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+ 			PNG::PNG
+ 		)
+ #	endif()
+-elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
++elseif(CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS")
+ 	set(THREADS_PREFER_PTHREAD_FLAG ON)
+ 	find_package(Threads REQUIRED)
+ 	set(ADDITIONAL_LIBRARY_DEPENDENCIES

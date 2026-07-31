@@ -1,0 +1,467 @@
+diff --git a/cmake/dependencies/ios.cmake b/cmake/dependencies/ios.cmake
+index 2ed98be1..aad5c586 100644
+--- a/cmake/dependencies/ios.cmake
++++ b/cmake/dependencies/ios.cmake
+@@ -6,7 +6,7 @@ if (NOT ${SDL2_FOUND})
+     FetchContent_Declare(
+         SDL2
+         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+-        GIT_TAG release-2.28.1
++        GIT_TAG release-2.32.10
+         OVERRIDE_FIND_PACKAGE
+     )
+     FetchContent_MakeAvailable(SDL2)
+@@ -18,7 +18,7 @@ if (NOT ${nlohmann_json_FOUND})
+     FetchContent_Declare(
+         nlohmann_json
+         GIT_REPOSITORY https://github.com/nlohmann/json.git
+-        GIT_TAG v3.11.3
++        GIT_TAG v3.12.0
+         OVERRIDE_FIND_PACKAGE
+     )
+     FetchContent_MakeAvailable(nlohmann_json)
+@@ -31,7 +31,7 @@ if (NOT ${tinyxml2_FOUND})
+     FetchContent_Declare(
+         tinyxml2
+         GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git
+-        GIT_TAG 10.0.0
++        GIT_TAG 11.0.0
+         OVERRIDE_FIND_PACKAGE
+     )
+     FetchContent_MakeAvailable(tinyxml2)
+@@ -43,7 +43,7 @@ if (NOT ${spdlog_FOUND})
+     FetchContent_Declare(
+         spdlog
+         GIT_REPOSITORY https://github.com/gabime/spdlog.git
+-        GIT_TAG v1.14.1
++        GIT_TAG v1.16.0
+         OVERRIDE_FIND_PACKAGE
+     )
+     FetchContent_MakeAvailable(spdlog)
+@@ -62,7 +62,7 @@ if (NOT ${libzip_FOUND})
+     FetchContent_Declare(
+         libzip
+         GIT_REPOSITORY https://github.com/nih-at/libzip.git
+-        GIT_TAG v1.10.1
++        GIT_TAG v1.11.4
+         OVERRIDE_FIND_PACKAGE
+     )
+     FetchContent_MakeAvailable(libzip)
+diff --git a/cmake/dependencies/mac.cmake b/cmake/dependencies/mac.cmake
+index 1a1694d3..31479f12 100644
+--- a/cmake/dependencies/mac.cmake
++++ b/cmake/dependencies/mac.cmake
+@@ -8,7 +8,7 @@ if (NOT ${spdlog_FOUND})
+     FetchContent_Declare(
+         spdlog
+         GIT_REPOSITORY https://github.com/gabime/spdlog.git
+-        GIT_TAG v1.14.1
++        GIT_TAG v1.15.3
+         OVERRIDE_FIND_PACKAGE
+     )
+     FetchContent_MakeAvailable(spdlog)
+diff --git a/cmake/ios-toolchain-populate.cmake b/cmake/ios-toolchain-populate.cmake
+index eb93fea4..644bcc26 100644
+--- a/cmake/ios-toolchain-populate.cmake
++++ b/cmake/ios-toolchain-populate.cmake
+@@ -1,4 +1,6 @@
+-set(PLATFORM "OS64COMBINED")
++if(NOT DEFINED PLATFORM)
++    set(PLATFORM "OS64COMBINED")
++endif()
+ include(FetchContent)
+ FetchContent_Declare(iostoolchain
+     GIT_REPOSITORY https://github.com/leetal/ios-cmake
+@@ -12,4 +14,4 @@ if(NOT iostoolchain_POPULATED)
+ endif()
+ set(CMAKE_IOS_TOOLCHAIN_FILE ${iostoolchain_SOURCE_DIR}/ios.toolchain.cmake)
+ set_property(GLOBAL PROPERTY IOS_TOOLCHAIN_FILE ${CMAKE_IOS_TOOLCHAIN_FILE})
+-include(${CMAKE_IOS_TOOLCHAIN_FILE})
+\ No newline at end of file
++include(${CMAKE_IOS_TOOLCHAIN_FILE})
+diff --git a/include/fast/backends/gfx_sdl.h b/include/fast/backends/gfx_sdl.h
+index 1f03cb63..27d6a9b6 100644
+--- a/include/fast/backends/gfx_sdl.h
++++ b/include/fast/backends/gfx_sdl.h
+@@ -61,5 +61,8 @@ class GfxWindowBackendSDL2 final : public GfxWindowBackend {
+     int mWindowWidth = 640;
+     int mWindowHeight = 480;
+     void (*mOnAllKeysUp)();
++#ifdef __IOS__
++    bool mIsBackgrounded = false;
++#endif
+ };
+ } // namespace Fast
+diff --git a/include/ship/audio/Audio.h b/include/ship/audio/Audio.h
+index 3190664c..a842991c 100644
+--- a/include/ship/audio/Audio.h
++++ b/include/ship/audio/Audio.h
+@@ -19,6 +19,7 @@ class Audio {
+     AudioBackend GetCurrentAudioBackend();
+     std::shared_ptr<std::vector<AudioBackend>> GetAvailableAudioBackends();
+     void SetCurrentAudioBackend(AudioBackend backend);
++    void SetPaused(bool paused);
+ 
+   protected:
+     void InitAudioPlayer();
+diff --git a/include/ship/audio/AudioPlayer.h b/include/ship/audio/AudioPlayer.h
+index 1d8b1c47..40b05b40 100644
+--- a/include/ship/audio/AudioPlayer.h
++++ b/include/ship/audio/AudioPlayer.h
+@@ -23,6 +23,8 @@ class AudioPlayer {
+     bool Init();
+     virtual int32_t Buffered() = 0;
+     virtual void Play(const uint8_t* buf, size_t len) = 0;
++    virtual void SetPaused(bool) {
++    }
+ 
+     bool IsInitialized();
+ 
+diff --git a/include/ship/audio/SDLAudioPlayer.h b/include/ship/audio/SDLAudioPlayer.h
+index fb82faf9..9998c82f 100644
+--- a/include/ship/audio/SDLAudioPlayer.h
++++ b/include/ship/audio/SDLAudioPlayer.h
+@@ -1,5 +1,6 @@
+ #pragma once
+ #include "AudioPlayer.h"
++#include <atomic>
+ #include <SDL2/SDL.h>
+ 
+ namespace Ship {
+@@ -9,14 +10,16 @@ class SDLAudioPlayer final : public AudioPlayer {
+     }
+     ~SDLAudioPlayer();
+ 
+-    int Buffered();
+-    void Play(const uint8_t* buf, size_t len);
++    int Buffered() override;
++    void Play(const uint8_t* buf, size_t len) override;
++    void SetPaused(bool paused) override;
+ 
+   protected:
+-    bool DoInit();
++    bool DoInit() override;
+ 
+   private:
+     SDL_AudioDeviceID mDevice;
+     int32_t mNumChannels = 2;
++    std::atomic_bool mPaused = false;
+ };
+ } // namespace Ship
+diff --git a/src/fast/Fast3dWindow.cpp b/src/fast/Fast3dWindow.cpp
+index 9943170d..6c4cba83 100644
+--- a/src/fast/Fast3dWindow.cpp
++++ b/src/fast/Fast3dWindow.cpp
+@@ -76,6 +76,10 @@ void Fast3dWindow::Init() {
+     int32_t posX, posY;
+ 
+     isFullscreen = Ship::Context::GetInstance()->GetConfig()->GetBool("Window.Fullscreen.Enabled", false) || gameMode;
++#ifdef __IOS__
++    isFullscreen = false;
++    Ship::Context::GetInstance()->GetConfig()->SetBool("Window.Fullscreen.Enabled", false);
++#endif
+     posX = Ship::Context::GetInstance()->GetConfig()->GetInt("Window.PositionX", 100);
+     posY = Ship::Context::GetInstance()->GetConfig()->GetInt("Window.PositionY", 100);
+ 
+diff --git a/src/fast/backends/gfx_sdl2.cpp b/src/fast/backends/gfx_sdl2.cpp
+index eb5df8b2..5a2b85a7 100644
+--- a/src/fast/backends/gfx_sdl2.cpp
++++ b/src/fast/backends/gfx_sdl2.cpp
+@@ -9,6 +9,11 @@
+ #endif
+ 
+ #include "ship/Context.h"
++#ifdef __IOS__
++#include "ship/audio/Audio.h"
++#include "ship/config/Config.h"
++#include "ship/window/Window.h"
++#endif
+ #include "ship/config/ConsoleVariable.h"
+ #include "ship/controller/controldeck/ControlDeck.h"
+ #include "ship/window/FileDropMgr.h"
+@@ -22,7 +27,9 @@
+ #elif __APPLE__
+ #include <SDL.h>
+ #include "fast/backends/gfx_metal.h"
++#if !defined(__IOS__)
+ #include "ship/utils/macUtils.h"
++#endif
+ #else
+ #include <SDL2/SDL.h>
+ #define GL_GLEXT_PROTOTYPES 1
+@@ -45,6 +52,25 @@ LONG_PTR SDL_WndProc;
+ #endif
+ 
+ namespace Fast {
++#ifdef __IOS__
++static void SaveIOSConfiguration() {
++    auto context = Ship::Context::GetInstance();
++    if (context->GetWindow() != nullptr) {
++        context->GetWindow()->SaveWindowToConfig();
++    }
++    if (context->GetConfig() != nullptr) {
++        context->GetConfig()->Save();
++    }
++}
++
++static void SetIOSAudioPaused(bool paused) {
++    auto audio = Ship::Context::GetInstance()->GetAudio();
++    if (audio != nullptr) {
++        audio->SetPaused(paused);
++    }
++}
++#endif
++
+ const SDL_Scancode lus_to_sdl_table[] = {
+     SDL_SCANCODE_UNKNOWN,
+     SDL_SCANCODE_ESCAPE,
+@@ -207,6 +233,16 @@ GfxWindowBackendSDL2::~GfxWindowBackendSDL2() {
+ }
+ 
+ void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {
++#ifdef __IOS__
++    // UIKit owns the full-screen drawable. Desktop display-mode switching can
++    // detach the Metal surface on iOS.
++    mFullScreen = false;
++    if (mOnFullscreenChanged != nullptr && call_callback) {
++        mOnFullscreenChanged(false);
++    }
++    return;
++#endif
++
+     if (mFullScreen == on) {
+         return;
+     }
+@@ -227,7 +263,7 @@ void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {
+         }
+     }
+ 
+-#if defined(__APPLE__)
++#if defined(__APPLE__) && !defined(__IOS__)
+     // Implement fullscreening with native macOS APIs
+     if (on != isNativeMacOSFullscreenActive(mWnd)) {
+         toggleNativeMacOSFullscreen(mWnd);
+@@ -505,7 +541,7 @@ void GfxWindowBackendSDL2::SetMouseCallbacks(bool (*onMouseButtonDown)(int btn),
+ }
+ 
+ void GfxWindowBackendSDL2::GetDimensions(uint32_t* width, uint32_t* height, int32_t* posX, int32_t* posY) {
+-#ifdef __APPLE__
++#if defined(__APPLE__) && !defined(__IOS__)
+     SDL_GetWindowSize(mWnd, static_cast<int*>((void*)width), static_cast<int*>((void*)height));
+ #else
+     SDL_GL_GetDrawableSize(mWnd, static_cast<int*>((void*)width), static_cast<int*>((void*)height));
+@@ -573,9 +609,19 @@ void GfxWindowBackendSDL2::HandleSingleEvent(SDL_Event& event) {
+             OnKeyup(event.key.keysym.scancode);
+             break;
+         case SDL_MOUSEBUTTONDOWN:
++#ifdef __IOS__
++            if (event.button.which == SDL_TOUCH_MOUSEID) {
++                break;
++            }
++#endif
+             OnMouseButtonDown(event.button.button - 1);
+             break;
+         case SDL_MOUSEBUTTONUP:
++#ifdef __IOS__
++            if (event.button.which == SDL_TOUCH_MOUSEID) {
++                break;
++            }
++#endif
+             OnMouseButtonUp(event.button.button - 1);
+             break;
+         case SDL_MOUSEWHEEL:
+@@ -604,6 +650,28 @@ void GfxWindowBackendSDL2::HandleSingleEvent(SDL_Event& event) {
+         case SDL_DROPFILE:
+             Ship::Context::GetInstance()->GetFileDropMgr()->SetDroppedFile(event.drop.file);
+             break;
++#ifdef __IOS__
++        case SDL_APP_WILLENTERBACKGROUND:
++            mIsBackgrounded = true;
++            SaveIOSConfiguration();
++            SetIOSAudioPaused(true);
++            break;
++        case SDL_APP_DIDENTERBACKGROUND:
++        case SDL_APP_WILLENTERFOREGROUND:
++            break;
++        case SDL_APP_DIDENTERFOREGROUND:
++            SetIOSAudioPaused(false);
++            mIsBackgrounded = false;
++            break;
++        case SDL_APP_LOWMEMORY:
++            SPDLOG_WARN("iOS reported low memory");
++            break;
++        case SDL_APP_TERMINATING:
++            mIsBackgrounded = true;
++            SaveIOSConfiguration();
++            SetIOSAudioPaused(true);
++            break;
++#endif
+         case SDL_QUIT:
+             Close();
+             break;
+@@ -621,7 +689,7 @@ void GfxWindowBackendSDL2::HandleEvents() {
+     }
+ 
+     // resync fullscreen state
+-#ifdef __APPLE__
++#if defined(__APPLE__) && !defined(__IOS__)
+     auto nextFullscreenState = isNativeMacOSFullscreenActive(mWnd);
+     if (mFullScreen != nextFullscreenState) {
+         mFullScreen = nextFullscreenState;
+@@ -633,7 +701,11 @@ void GfxWindowBackendSDL2::HandleEvents() {
+ }
+ 
+ bool GfxWindowBackendSDL2::IsFrameReady() {
++#ifdef __IOS__
++    return !mIsBackgrounded;
++#else
+     return true;
++#endif
+ }
+ 
+ static uint64_t qpc_to_100ns(uint64_t qpc) {
+diff --git a/src/libultraship/controller/controldevice/controller/mapping/ControllerDefaultMappings.cpp b/src/libultraship/controller/controldevice/controller/mapping/ControllerDefaultMappings.cpp
+index c431c346..1bce6004 100644
+--- a/src/libultraship/controller/controldevice/controller/mapping/ControllerDefaultMappings.cpp
++++ b/src/libultraship/controller/controldevice/controller/mapping/ControllerDefaultMappings.cpp
+@@ -51,7 +51,7 @@ void ControllerDefaultMappings::SetDefaultKeyboardKeyToButtonMappings(
+         { BTN_L, { Ship::KbScancode::LUS_KB_E } },
+         { BTN_R, { Ship::KbScancode::LUS_KB_R } },
+         { BTN_Z, { Ship::KbScancode::LUS_KB_Z } },
+-        { BTN_START, { Ship::KbScancode::LUS_KB_SPACE } },
++        { BTN_START, { Ship::KbScancode::LUS_KB_SPACE, Ship::KbScancode::LUS_KB_ENTER } },
+         { BTN_CUP, { Ship::KbScancode::LUS_KB_ARROWKEY_UP } },
+         { BTN_CDOWN, { Ship::KbScancode::LUS_KB_ARROWKEY_DOWN } },
+         { BTN_CLEFT, { Ship::KbScancode::LUS_KB_ARROWKEY_LEFT } },
+diff --git a/src/ship/Context.cpp b/src/ship/Context.cpp
+index 0c36b4f4..7778d370 100644
+--- a/src/ship/Context.cpp
++++ b/src/ship/Context.cpp
+@@ -398,11 +398,6 @@ std::string Context::GetAppBundlePath() {
+     }
+ #endif
+ 
+-#ifdef __IOS__
+-    const char* home = getenv("HOME");
+-    return std::string(home) + "/Documents";
+-#endif
+-
+ #ifdef NON_PORTABLE
+     return CMAKE_INSTALL_PREFIX;
+ #else
+diff --git a/src/ship/audio/Audio.cpp b/src/ship/audio/Audio.cpp
+index 6efce2c2..b715a25f 100644
+--- a/src/ship/audio/Audio.cpp
++++ b/src/ship/audio/Audio.cpp
+@@ -62,4 +62,10 @@ std::shared_ptr<std::vector<AudioBackend>> Audio::GetAvailableAudioBackends() {
+     return mAvailableAudioBackends;
+ }
+ 
++void Audio::SetPaused(bool paused) {
++    if (mAudioPlayer != nullptr) {
++        mAudioPlayer->SetPaused(paused);
++    }
++}
++
+ } // namespace Ship
+diff --git a/src/ship/audio/SDLAudioPlayer.cpp b/src/ship/audio/SDLAudioPlayer.cpp
+index c74c8840..081e678e 100644
+--- a/src/ship/audio/SDLAudioPlayer.cpp
++++ b/src/ship/audio/SDLAudioPlayer.cpp
+@@ -9,6 +9,9 @@ SDLAudioPlayer::~SDLAudioPlayer() {
+ }
+ 
+ bool SDLAudioPlayer::DoInit() {
++#ifdef __IOS__
++    SDL_SetHint(SDL_HINT_AUDIO_CATEGORY, "playback");
++#endif
+     if (SDL_Init(SDL_INIT_AUDIO) != 0) {
+         SPDLOG_ERROR("SDL init error: %s\n", SDL_GetError());
+         return false;
+@@ -35,9 +38,20 @@ int SDLAudioPlayer::Buffered() {
+ }
+ 
+ void SDLAudioPlayer::Play(const uint8_t* buf, size_t len) {
+-    if (Buffered() < 6000) {
++    if (!mPaused && Buffered() < 6000) {
+         // Don't fill the audio buffer too much in case this happens
+         SDL_QueueAudio(mDevice, buf, len);
+     }
+ }
++
++void SDLAudioPlayer::SetPaused(bool paused) {
++    mPaused = paused;
++    if (mDevice == 0) {
++        return;
++    }
++    SDL_PauseAudioDevice(mDevice, paused ? 1 : 0);
++    if (paused) {
++        SDL_ClearQueuedAudio(mDevice);
++    }
++}
+ } // namespace Ship
+diff --git a/src/ship/port/mobile/MobileImpl.cpp b/src/ship/port/mobile/MobileImpl.cpp
+index 34391d1b..8d73c9cb 100644
+--- a/src/ship/port/mobile/MobileImpl.cpp
++++ b/src/ship/port/mobile/MobileImpl.cpp
+@@ -1,7 +1,6 @@
+ #if defined(__ANDROID__) || defined(__IOS__)
+-#include "MobileImpl.h"
++#include "ship/port/mobile/MobileImpl.h"
+ #include <SDL2/SDL.h>
+-#include "ship/public/bridge/consolevariablebridge.h"
+ 
+ #include <imgui_internal.h>
+ 
+diff --git a/src/ship/window/gui/Gui.cpp b/src/ship/window/gui/Gui.cpp
+index 17f0c2b0..0e1d2496 100644
+--- a/src/ship/window/gui/Gui.cpp
++++ b/src/ship/window/gui/Gui.cpp
+@@ -7,6 +7,10 @@
+ #include <string>
+ #include <vector>
+ 
++#ifdef __IOS__
++extern "C" void MaskPad_SetTouchControlsMenuVisible(int visible);
++#endif
++
+ #include "ship/config/Config.h"
+ #include "ship/Context.h"
+ #include "ship/config/ConsoleVariable.h"
+@@ -31,7 +35,7 @@
+ #endif
+ 
+ #if defined(__ANDROID__) || defined(__IOS__)
+-#include "port/mobile/MobileImpl.h"
++#include "ship/port/mobile/MobileImpl.h"
+ #endif
+ 
+ #ifdef ENABLE_OPENGL
+@@ -583,6 +587,10 @@ void Gui::DrawMenu() {
+         GetMenu()->Draw();
+     }
+ 
++#ifdef __IOS__
++    MaskPad_SetTouchControlsMenuVisible(GetMenuOrMenubarVisible());
++#endif
++
+     for (auto& windowIter : mGuiWindows) {
+         windowIter.second->Update();
+         windowIter.second->Draw();
+diff --git a/src/fast/backends/gfx_metal.cpp b/src/fast/backends/gfx_metal.cpp
+index ad7cc49d..250bc1ee 100644
+--- a/src/fast/backends/gfx_metal.cpp
++++ b/src/fast/backends/gfx_metal.cpp
+@@ -606,8 +606,10 @@ void GfxRenderingAPIMetal::SetupScreenFramebuffer(uint32_t width, uint32_t heigh
+ 
+     NS::AutoreleasePool* autorelease_pool = NS::AutoreleasePool::alloc()->init();
+ 
+-    if (tex.texture != nullptr)
+-        tex.texture->release();
++    // The screen texture is owned by CAMetalDrawable. Releasing this borrowed
++    // pointer here over-releases it; QuartzCore releases it again when the
++    // drawable is retired, which crashes when iOS backgrounds the app.
++    // Assign the next drawable's texture and let the drawable own its lifetime.
+ 
+     tex.texture = mCurrentDrawable->texture();
+ 

@@ -1,0 +1,38 @@
+# Local reference material and user-owned game data; never track.
+ref/*
+
+# Nintendo game data and generated archives.
+*.z64
+*.n64
+*.v64
+*.rom
+*.o2r
+*.otr
+*.mpq
+
+# Disposable pinned upstream checkouts.
+/sources/
+
+# Build and package output.
+/build*/
+/artifacts/
+DerivedData/
+*.xcarchive
+*.ipa
+*.app
+
+# Apple signing material and private keys.
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.p8
+*.pem
+*.key
+
+# Xcode, macOS, editors, and logs.
+xcuserdata/
+*.xcuserstate
+.DS_Store
+.vscode/
+.idea/
+*.log

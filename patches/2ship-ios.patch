@@ -1,0 +1,1046 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index e3c1ac7b5..c88e3fb7b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,6 +1,14 @@
+ cmake_minimum_required(VERSION 3.26.0 FATAL_ERROR)
+ 
+-set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
++if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
++    set(CMAKE_SYSTEM_VERSION "${DEPLOYMENT_TARGET}" CACHE STRING "" FORCE)
++    if(PLATFORM STREQUAL "SIMULATORARM64")
++        set(CMAKE_OSX_SYSROOT "iphonesimulator" CACHE STRING "" FORCE)
++        set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
++    endif()
++else()
++    set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
++endif()
+ set(CMAKE_CXX_STANDARD 20 CACHE STRING "The C++ standard to use")
+ 
+ set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
+@@ -73,6 +81,11 @@ set(GBI_UCODE F3DEX_GBI_2)
+ 
+ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
+ 
++# Dependencies that are not provided by the iOS SDK.
++if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
++    include(CMake/ios.cmake)
++endif()
++
+ # Enable MPQ and OTR support
+ set(INCLUDE_MPQ_SUPPORT ON)
+ 
+@@ -162,6 +175,12 @@ add_subdirectory(libultraship ${CMAKE_BINARY_DIR}/libultraship)
+ target_compile_definitions(libultraship PUBLIC INCLUDE_MPQ_SUPPORT)
+ add_subdirectory(ZAPDTR/ZAPD ${CMAKE_BINARY_DIR}/ZAPD)
+ add_subdirectory(OTRExporter)
++if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
++    target_link_libraries(OTRExporter PUBLIC
++        tinyxml2::tinyxml2
++        libzip::zip
++    )
++endif()
+ add_subdirectory(mm)
+ 
+ set_property(TARGET 2ship PROPERTY APPIMAGE_DESKTOP_FILE_TERMINAL YES)
+diff --git a/mm/2s2h/BenGui/BenMenu.cpp b/mm/2s2h/BenGui/BenMenu.cpp
+index 1a5ad515b..e8e044b6d 100644
+--- a/mm/2s2h/BenGui/BenMenu.cpp
++++ b/mm/2s2h/BenGui/BenMenu.cpp
+@@ -17,6 +17,9 @@
+ #include "ResolutionEditor.h"
+ #include "2s2h/Rando/Rando.h"
+ #include "build.h"
++#ifdef __IOS__
++#include "ios/MaskPadTouchControls.h"
++#endif
+ 
+ extern "C" {
+ #include "z64.h"
+@@ -576,6 +579,44 @@ void BenMenu::AddSettings() {
+ 
+     path.sidebarName = "Controls";
+     AddSidebarEntry("Settings", "Controls", 1);
++#ifdef __IOS__
++    AddWidget(path, "Touch Controls", WIDGET_CVAR_CHECKBOX)
++        .CVar("gSettings.MaskPad.TouchControls")
++        .Callback([](WidgetInfo& info) {
++            MaskPad_SetTouchControlsEnabled(
++                CVarGetInteger("gSettings.MaskPad.TouchControls", 1));
++        })
++        .Options(CheckboxOptions()
++                     .DefaultValue(true)
++                     .Tooltip("Shows the touch controller. Disable it when using a physical controller."));
++    AddWidget(path, "Legacy Fixed Touch Controls", WIDGET_CVAR_CHECKBOX)
++        .CVar("gSettings.MaskPad.LegacyFixedTouchControls")
++        .Callback([](WidgetInfo& info) {
++            const bool modernTouchControls =
++                !CVarGetInteger("gSettings.MaskPad.LegacyFixedTouchControls", 0);
++            CVarSetInteger("gSettings.MaskPad.CustomizableTouchControls", modernTouchControls);
++            CVarSetInteger("gSettings.MaskPad.NativeHudTouch", modernTouchControls);
++            MaskPad_SetCustomizableTouchControlsEnabled(modernTouchControls);
++            MaskPad_SetNativeHudTouchEnabled(modernTouchControls);
++        })
++        .Options(CheckboxOptions()
++                     .DefaultValue(false)
++                     .Tooltip("Uses the fixed UIKit layout and disables customization, native HUD artwork, "
++                              "and the Z hold latch."));
++    AddWidget(path, "Customize Touch Layout", WIDGET_BUTTON)
++        .PreFunc([](WidgetInfo& info) {
++            const bool available =
++                CVarGetInteger("gSettings.MaskPad.TouchControls", 1) &&
++                !CVarGetInteger("gSettings.MaskPad.LegacyFixedTouchControls", 0);
++            info.options->disabled = !available;
++            info.options->disabledTooltip =
++                "Enable Touch Controls and turn off Legacy Fixed Touch Controls first.";
++        })
++        .Callback([](WidgetInfo& info) { MaskPad_BeginTouchLayoutEditing(); })
++        .Options(ButtonOptions().Tooltip(
++            "Closes Settings and opens the layout editor. Drag controls, resize the selected control, hide "
++            "unused buttons, or restore the phone or tablet defaults."));
++#endif
+     AddWidget(path, "Popout Bindings Window", WIDGET_WINDOW_BUTTON)
+         .CVar("gWindows.BenInputEditor")
+         .WindowName("2S2H Input Editor")
+diff --git a/mm/2s2h/BenPort.cpp b/mm/2s2h/BenPort.cpp
+index c9a5ad156..87460b1d9 100644
+--- a/mm/2s2h/BenPort.cpp
++++ b/mm/2s2h/BenPort.cpp
+@@ -64,6 +64,11 @@ CrowdControl* CrowdControl::Instance;
+ #include "2s2h/ShipUtils.h"
+ #include "2s2h/ShipInit.hpp"
+ #include "2s2h/PresetManager/PresetManager.h"
++#ifdef __IOS__
++#include <cstdlib>
++#include <cstring>
++#include "ios/MaskPadTouchControls.h"
++#endif
+ 
+ // Resource Types/Factories
+ #include <ship/resource/type/Blob.h>
+@@ -659,6 +664,14 @@ void CheckAndCreateModFolder() {
+ }
+ 
+ extern "C" void InitOTR() {
++
++#if defined(__IOS__) && defined(MASKPAD_UI_TEST_HARNESS)
++    const char* uiTestMode = std::getenv("MASKPAD_UI_TEST_MODE");
++    if (uiTestMode != nullptr && std::strcmp(uiTestMode, "gameplay") != 0) {
++        MaskPad_RunUITestMode();
++        return;
++    }
++#endif
+ 
+ #ifdef __SWITCH__
+     Ship::Switch::Init(Ship::PreInitPhase);
+@@ -694,10 +705,20 @@ extern "C" void InitOTR() {
+             exit(1);
+         }
+ 
+-        if (Extractor::ShowYesNoBox("No O2R File", "No O2R files found. Generate one now?") == IDYES) {
++        bool shouldGenerate =
++#ifdef __IOS__
++            true;
++#else
++            Extractor::ShowYesNoBox("No O2R File", "No O2R files found. Generate one now?") == IDYES;
++#endif
++        if (shouldGenerate) {
+             Extractor extract;
+             if (!extract.Run(Ship::Context::GetAppDirectoryPath(appShortName))) {
++#ifdef __IOS__
++                MaskPad_ShowMissingRomMessage();
++#else
+                 Extractor::ShowErrorBox("Error", "An error occurred, no O2R file was generated. Exiting...");
++#endif
+                 exit(1);
+             }
+             extract.CallZapd(installPath, Ship::Context::GetAppDirectoryPath(appShortName));
+@@ -708,6 +729,19 @@ extern "C" void InitOTR() {
+ #endif
+ 
+     OTRGlobals::Instance = new OTRGlobals();
++#ifdef __IOS__
++    CVarSetInteger(CVAR_IMGUI_CONTROLLER_NAV, 1);
++    CVarRegisterInteger("gSettings.MaskPad.TouchControls", 1);
++    MaskPad_SetTouchControlsEnabled(
++        CVarGetInteger("gSettings.MaskPad.TouchControls", 1));
++    CVarRegisterInteger("gSettings.MaskPad.LegacyFixedTouchControls", 0);
++    const int modernTouchControls =
++        !CVarGetInteger("gSettings.MaskPad.LegacyFixedTouchControls", 0);
++    CVarSetInteger("gSettings.MaskPad.CustomizableTouchControls", modernTouchControls);
++    CVarSetInteger("gSettings.MaskPad.NativeHudTouch", modernTouchControls);
++    MaskPad_SetCustomizableTouchControlsEnabled(modernTouchControls);
++    MaskPad_SetNativeHudTouchEnabled(modernTouchControls);
++#endif
+     GameInteractor::Instance = new GameInteractor();
+     AudioCollection::Instance = new AudioCollection();
+     LoadGuiTextures();
+diff --git a/mm/2s2h/DeveloperTools/DeveloperTools.cpp b/mm/2s2h/DeveloperTools/DeveloperTools.cpp
+index 8cd632cef..927387edd 100644
+--- a/mm/2s2h/DeveloperTools/DeveloperTools.cpp
++++ b/mm/2s2h/DeveloperTools/DeveloperTools.cpp
+@@ -1,6 +1,9 @@
+ #include "DeveloperTools.h"
+ #include "BenPort.h"
+ #include <libultraship/bridge/consolevariablebridge.h>
++#include <ship/window/Window.h>
++#include <ship/window/gui/ConsoleWindow.h>
++#include <ship/window/gui/Gui.h>
+ #include "2s2h/GameInteractor/GameInteractor.h"
+ #include "2s2h/ShipInit.hpp"
+ 
+diff --git a/mm/2s2h/Enhancements/Cutscenes/MiscInteractions/SkipHungryGoronDialogue.cpp b/mm/2s2h/Enhancements/Cutscenes/MiscInteractions/SkipHungryGoronDialogue.cpp
+index 859b31b6d..7ea4acb69 100644
+--- a/mm/2s2h/Enhancements/Cutscenes/MiscInteractions/SkipHungryGoronDialogue.cpp
++++ b/mm/2s2h/Enhancements/Cutscenes/MiscInteractions/SkipHungryGoronDialogue.cpp
+@@ -1,6 +1,7 @@
+ #include <libultraship/bridge/consolevariablebridge.h>
+ #include "2s2h/GameInteractor/GameInteractor.h"
+ #include "2s2h/ShipInit.hpp"
++#include "functions.h"
+ 
+ #define CVAR_NAME "gEnhancements.Cutscenes.SkipMiscInteractions"
+ #define CVAR CVarGetInteger(CVAR_NAME, 0)
+diff --git a/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.cpp b/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.cpp
+index e7f442712..742c5b089 100644
+--- a/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.cpp
++++ b/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.cpp
+@@ -7,8 +7,11 @@
+ 
+ #include "FrameInterpolation.h"
+ #include "2s2h/BenPort.h"
++
++extern "C" {
+ #include <sys_matrix.h>
+ #include <z64skin_matrix.h>
++}
+ 
+ /*
+ Frame interpolation.
+diff --git a/mm/2s2h/Enhancements/Masks/EquipMaskOtherForms.cpp b/mm/2s2h/Enhancements/Masks/EquipMaskOtherForms.cpp
+index e7d0dd9ba..ad3629b00 100644
+--- a/mm/2s2h/Enhancements/Masks/EquipMaskOtherForms.cpp
++++ b/mm/2s2h/Enhancements/Masks/EquipMaskOtherForms.cpp
+@@ -5,6 +5,10 @@
+ #define CVAR_NAME "gEnhancements.Masks.3DSMaskEquip"
+ #define CVAR CVarGetInteger(CVAR_NAME, 0)
+ 
++extern "C" {
++extern PlayState* gPlayState;
++}
++
+ static PlayerMask sPendingMask = PLAYER_MASK_NONE;
+ static HOOK_ID sPlayerUpdateHookId = 0;
+ 
+diff --git a/mm/2s2h/Enhancements/Masks/EquipWhileSwimming.cpp b/mm/2s2h/Enhancements/Masks/EquipWhileSwimming.cpp
+index 20ea8a527..c4140c502 100644
+--- a/mm/2s2h/Enhancements/Masks/EquipWhileSwimming.cpp
++++ b/mm/2s2h/Enhancements/Masks/EquipWhileSwimming.cpp
+@@ -5,6 +5,10 @@
+ #define CVAR_NAME "gEnhancements.Masks.EquipWhileSwimming"
+ #define CVAR CVarGetInteger(CVAR_NAME, 0)
+ 
++extern "C" {
++extern PlayState* gPlayState;
++}
++
+ static void RegisterEquipWhileSwimming() {
+     COND_VB_SHOULD(VB_USE_ITEM_CONSIDER_ITEM_ACTION, CVAR, {
+         PlayerItemAction itemAction = *va_arg(args, PlayerItemAction*);
+diff --git a/mm/2s2h/Enhancements/Saving/PauseSave.cpp b/mm/2s2h/Enhancements/Saving/PauseSave.cpp
+index 7478792ca..6b51b4f01 100644
+--- a/mm/2s2h/Enhancements/Saving/PauseSave.cpp
++++ b/mm/2s2h/Enhancements/Saving/PauseSave.cpp
+@@ -1,4 +1,5 @@
+ #include <libultraship/bridge/consolevariablebridge.h>
++#include "2s2h/GameInteractor/GameInteractor.h"
+ #include "2s2h/ShipInit.hpp"
+ #include "SavingEnhancements.h"
+ 
+diff --git a/mm/2s2h/Enhancements/Timesavers/AutoBankDeposit.cpp b/mm/2s2h/Enhancements/Timesavers/AutoBankDeposit.cpp
+index 601dd4194..0fb3e4b25 100644
+--- a/mm/2s2h/Enhancements/Timesavers/AutoBankDeposit.cpp
++++ b/mm/2s2h/Enhancements/Timesavers/AutoBankDeposit.cpp
+@@ -4,6 +4,11 @@
+ #include "2s2h/Rando/Rando.h"
+ #include "2s2h/CustomMessage/CustomMessage.h"
+ #include "2s2h/CustomItem/CustomItem.h"
++#include <libultraship/bridge/consolevariablebridge.h>
++
++extern "C" {
++#include "functions.h"
++}
+ 
+ #define CVAR_NAME "gEnhancements.Timesavers.AutoBankDeposit"
+ #define CVAR CVarGetInteger(CVAR_NAME, 0)
+diff --git a/mm/2s2h/Enhancements/Trackers/ItemTracker/ItemTracker.h b/mm/2s2h/Enhancements/Trackers/ItemTracker/ItemTracker.h
+index dd495de82..c4ea980eb 100644
+--- a/mm/2s2h/Enhancements/Trackers/ItemTracker/ItemTracker.h
++++ b/mm/2s2h/Enhancements/Trackers/ItemTracker/ItemTracker.h
+@@ -1,7 +1,12 @@
++#include <string>
+ #include <vector>
+ #include <imgui.h>
+ #include "ship/window/gui/GuiWindow.h"
+ 
++extern "C" {
++#include "ultra64.h"
++}
++
+ #define ITEM_TEXTURE_SIZE 46.0f
+ 
+ typedef enum {
+diff --git a/mm/2s2h/Extractor/Extract.cpp b/mm/2s2h/Extractor/Extract.cpp
+index 707dfec0f..8425bcbac 100644
+--- a/mm/2s2h/Extractor/Extract.cpp
++++ b/mm/2s2h/Extractor/Extract.cpp
+@@ -424,6 +424,9 @@ bool Extractor::Run(std::string searchPath, RomSearchMode searchMode) {
+     FilterRoms(roms, searchMode);
+ 
+     if (roms.empty()) {
++#ifdef __IOS__
++        return false;
++#else
+         int ret = ShowYesNoBox("No roms found", "No roms found. Look for one?");
+ 
+         switch (ret) {
+@@ -439,8 +442,10 @@ bool Extractor::Run(std::string searchPath, RomSearchMode searchMode) {
+                 UNREACHABLE;
+                 break;
+         }
++#endif
+     }
+ 
++#ifndef __IOS__
+     if (roms.size() > 1) {
+         int ret = ShowYesNoBox("Multiple ROMs Found", "Multiple ROM files were detected. Select one manually?");
+         if (ret == IDYES) {
+@@ -451,6 +456,7 @@ bool Extractor::Run(std::string searchPath, RomSearchMode searchMode) {
+             roms.push_back(mCurrentRomPath);
+         }
+     }
++#endif
+ 
+     for (const auto& rom : roms) {
+         SetRomInfo(rom);
+@@ -466,7 +472,12 @@ bool Extractor::Run(std::string searchPath, RomSearchMode searchMode) {
+         inFile.close();
+         BitConverter::RomToBigEndian(mRomData.get(), mCurRomSize);
+ 
+-        int option = ShowRomPickBox(GetRomVerCrc());
++        int option =
++#ifdef __IOS__
++            (int)ButtonId::YES;
++#else
++            ShowRomPickBox(GetRomVerCrc());
++#endif
+ 
+         if (option == (int)ButtonId::YES) {
+             if (!ValidateRom(true)) {
+@@ -597,7 +608,7 @@ bool Extractor::CallZapd(std::string installPath, std::string exportdir) {
+     // extraction.
+     ShowWindow(cmdWindow, SW_SHOW);
+     SetWindowPos(cmdWindow, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+-#else
++#elif !defined(__IOS__)
+     std::thread mbThread(MessageboxWorker);
+     mbThread.detach();
+ #endif
+@@ -623,4 +634,4 @@ static void MessageboxWorker() {
+                              "Extraction will now begin in the background.\n\nPlease be patient for the process to "
+                              "finish. Do not close the main program.",
+                              nullptr);
+-}
+\ No newline at end of file
++}
+diff --git a/mm/2s2h/Rando/ConvertItem.cpp b/mm/2s2h/Rando/ConvertItem.cpp
+index 4506f6140..ba7135477 100644
+--- a/mm/2s2h/Rando/ConvertItem.cpp
++++ b/mm/2s2h/Rando/ConvertItem.cpp
+@@ -3,6 +3,7 @@
+ #include "Rando/MiscBehavior/ClockShuffle.h"
+ #include "2s2h/ShipUtils.h"
+ #include "2s2h/ShipInit.hpp"
++#include <libultraship/bridge/consolevariablebridge.h>
+ #include <cassert>
+ 
+ // Copied from z_player.c, we could instead move this to a header file, idk
+diff --git a/mm/2s2h/Rando/MiscBehavior/ClockShuffle.h b/mm/2s2h/Rando/MiscBehavior/ClockShuffle.h
+index ab79f2102..8bc7da3e8 100644
+--- a/mm/2s2h/Rando/MiscBehavior/ClockShuffle.h
++++ b/mm/2s2h/Rando/MiscBehavior/ClockShuffle.h
+@@ -1,8 +1,13 @@
+ #ifndef RANDO_CLOCK_SHUFFLE_H
+ #define RANDO_CLOCK_SHUFFLE_H
+ 
++#include <string>
+ #include "Rando/Types.h"
+ 
++extern "C" {
++#include "ultra64.h"
++}
++
+ namespace Rando {
+ namespace ClockItems {
+ 
+diff --git a/mm/2s2h/Rando/Rando.h b/mm/2s2h/Rando/Rando.h
+index 03b542173..e9a8665db 100644
+--- a/mm/2s2h/Rando/Rando.h
++++ b/mm/2s2h/Rando/Rando.h
+@@ -4,6 +4,7 @@
+ #include "StaticData/StaticData.h"
+ #include "Types.h"
+ #include "variables.h"
++#include <nlohmann/json.hpp>
+ 
+ #define IS_RANDO (gSaveContext.save.shipSaveInfo.saveType == SAVETYPE_RANDO)
+ #define RANDO_SAVE_CHECKS gSaveContext.save.shipSaveInfo.rando.randoSaveChecks
+diff --git a/mm/2s2h/Rando/Spoiler/Apply.cpp b/mm/2s2h/Rando/Spoiler/Apply.cpp
+index 39fae9c14..012a342db 100644
+--- a/mm/2s2h/Rando/Spoiler/Apply.cpp
++++ b/mm/2s2h/Rando/Spoiler/Apply.cpp
+@@ -1,6 +1,7 @@
+ #include "Spoiler.h"
+ #include "Rando/Rando.h"
+ #include <libultraship/bridge/consolevariablebridge.h>
++#include <spdlog/spdlog.h>
+ #include "ShipUtils.h"
+ 
+ extern "C" {
+diff --git a/mm/2s2h/resource/importer/CutsceneFactory.cpp b/mm/2s2h/resource/importer/CutsceneFactory.cpp
+index 59035ee55..49020032b 100644
+--- a/mm/2s2h/resource/importer/CutsceneFactory.cpp
++++ b/mm/2s2h/resource/importer/CutsceneFactory.cpp
+@@ -2,6 +2,7 @@
+ #include "2s2h/resource/type/Cutscene.h"
+ 
+ extern "C" {
++#include "z64.h"
+ #include "z64cutscene.h"
+ }
+ 
+diff --git a/mm/CMakeLists.txt b/mm/CMakeLists.txt
+index 9f0834a7a..abfcac469 100644
+--- a/mm/CMakeLists.txt
++++ b/mm/CMakeLists.txt
+@@ -1,11 +1,15 @@
+ cmake_minimum_required(VERSION 3.26.0 FATAL_ERROR)
+ 
+-set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
++if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
++    set(CMAKE_SYSTEM_VERSION "${DEPLOYMENT_TARGET}" CACHE STRING "" FORCE)
++else()
++    set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
++endif()
+ 
+ project(2ship LANGUAGES C CXX)
+ set(CMAKE_CXX_STANDARD 20 CACHE STRING "The C++ standard to use")
+ 
+-if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
++if (CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS")
+     enable_language(OBJCXX)
+     set(CMAKE_OBJC_FLAGS "${CMAKE_OBJC_FLAGS} -fobjc-arc")
+     set(CMAKE_OBJCXX_FLAGS "${CMAKE_OBJCXX_FLAGS} -fobjc-arc")
+@@ -96,6 +100,9 @@ source_group("include" FILES ${Header_Files__include})
+ # }}}
+ 
+ file(GLOB_RECURSE ship__ RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "2s2h/*.c" "2s2h/*.cpp" "2s2h/*.h" "2s2h/*.hpp")
++if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
++    list(APPEND ship__ ${CMAKE_CURRENT_SOURCE_DIR}/ios/MaskPadTouchControls.mm)
++endif()
+ # Create source groups that match the real file directory paths
+ foreach(source IN LISTS ship__)
+     get_filename_component(source_path "${source}" PATH)
+@@ -126,7 +133,6 @@ else()
+         "2s2h/Extractor/*.hpp"
+     )
+ endif()
+-
+ # src (decomp) {{{
+ file(GLOB_RECURSE src__ RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "src/*.c" "src/*.h")
+ 
+@@ -178,6 +184,24 @@ set(ALL_FILES
+ ################################################################################
+ add_executable(${PROJECT_NAME} ${ALL_FILES})
+ 
++if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
++    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/2ship.o2r")
++        message(FATAL_ERROR
++            "2ship.o2r is unavailable. Generate the ROM-free port archive before configuring MaskPad.")
++    endif()
++    add_custom_command(
++        TARGET ${PROJECT_NAME}
++        POST_BUILD
++        COMMENT "Copying MaskPad runtime resources..."
++        COMMAND ${CMAKE_COMMAND} -E copy_if_different
++            "${CMAKE_CURRENT_SOURCE_DIR}/2ship.o2r"
++            "$<TARGET_FILE_DIR:2ship>/2ship.o2r"
++        COMMAND ${CMAKE_COMMAND} -E copy_if_different
++            "${CMAKE_BINARY_DIR}/gamecontrollerdb.txt"
++            "$<TARGET_FILE_DIR:2ship>/gamecontrollerdb.txt"
++    )
++endif()
++
+ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+ use_props(${PROJECT_NAME} "${CMAKE_CONFIGURATION_TYPES}" "${DEFAULT_CXX_PROPS}")
+ endif()
+@@ -196,6 +220,47 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+         XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+         OUTPUT_NAME "2s2h-macos"
+     )
++elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
++    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ios/Assets.xcassets")
++        set(MASKPAD_ASSET_CATALOG "${CMAKE_CURRENT_SOURCE_DIR}/ios/Assets.xcassets")
++        target_sources(${PROJECT_NAME} PRIVATE "${MASKPAD_ASSET_CATALOG}")
++        set_source_files_properties("${MASKPAD_ASSET_CATALOG}" PROPERTIES
++            MACOSX_PACKAGE_LOCATION Resources
++        )
++    endif()
++    set_target_properties(${PROJECT_NAME} PROPERTIES
++        MACOSX_BUNDLE TRUE
++        MACOSX_BUNDLE_GUI_IDENTIFIER "${BUNDLE_ID}"
++        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/Info.plist.in"
++        OUTPUT_NAME "MaskPad"
++        XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
++        XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
++        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${BUNDLE_ID}"
++        XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
++    )
++    option(MASKPAD_BUILD_UI_TESTS "Build the opt-in MaskPad Simulator UI tests" OFF)
++    if(MASKPAD_BUILD_UI_TESTS)
++        enable_testing()
++        find_package(XCTest REQUIRED)
++        target_compile_definitions(${PROJECT_NAME} PRIVATE MASKPAD_UI_TEST_HARNESS=1)
++        xctest_add_bundle(
++            MaskPadUITests
++            ${PROJECT_NAME}
++            "${CMAKE_CURRENT_SOURCE_DIR}/ios/MaskPadUITests.mm"
++        )
++        target_link_libraries(MaskPadUITests PRIVATE "-framework CoreGraphics")
++        set_target_properties(MaskPadUITests PROPERTIES
++            XCODE_PRODUCT_TYPE "com.apple.product-type.bundle.ui-testing"
++            XCODE_ATTRIBUTE_BUNDLE_LOADER "" XCODE_ATTRIBUTE_TEST_HOST ""
++            XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
++            XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${BUNDLE_ID}.uitests"
++            XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
++            XCODE_ATTRIBUTE_TEST_TARGET_NAME "${PROJECT_NAME}"
++        )
++        xctest_add_test(
++            MaskPadUITestsRunner MaskPadUITests
++        )
++    endif()
+ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+ 	set_target_properties(${PROJECT_NAME} PROPERTIES
+ 	OUTPUT_NAME "2s2h.elf"
+@@ -265,6 +330,17 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+ 		"_CRT_SECURE_NO_WARNINGS;"
+ 		NOMINMAX
+ 	)
++elseif (CMAKE_SYSTEM_NAME STREQUAL "iOS")
++    target_compile_definitions(${PROJECT_NAME} PRIVATE
++        "$<$<CONFIG:Debug>:_DEBUG>"
++        "$<$<CONFIG:Release>:NDEBUG>"
++        "__IOS__;"
++        "F3DEX_GBI_2;"
++        "_CONSOLE;"
++        "_CRT_SECURE_NO_WARNINGS;"
++        SPDLOG_ACTIVE_LEVEL=${SPDLOG_MIN_CUTOFF}
++        LOG_LEVEL_GAME_PRINTS=${SPDLOG_LEVEL_OFF}
++    )
+ elseif (CMAKE_SYSTEM_NAME STREQUAL "CafeOS")
+ 	target_compile_definitions(${PROJECT_NAME} PRIVATE
+ 		"$<$<CONFIG:Debug>:"
+@@ -346,7 +422,7 @@ if(MSVC)
+ endif()
+ 
+ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+-    if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
++    if (CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS")
+         target_compile_options(${PROJECT_NAME} PRIVATE
+             -Wall -Wextra -Wno-error
+             -Wno-return-type
+@@ -463,6 +539,7 @@ SKIP_PRECOMPILE_HEADERS ON
+ ################################################################################
+ # Precompiled Headers
+ ################################################################################
++if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+ target_precompile_headers(${PROJECT_NAME} PRIVATE
+     "$<$<COMPILE_LANGUAGE:CXX>:<libultraship/bridge/consolevariablebridge.h$<ANGLE-R>>"
+     "$<$<COMPILE_LANGUAGE:CXX>:<ship/Context.h$<ANGLE-R>>"
+@@ -490,6 +567,7 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE
+     "$<$<COMPILE_LANGUAGE:C>:${CMAKE_CURRENT_SOURCE_DIR}/include/functions.h>"
+     "$<$<COMPILE_LANGUAGE:C>:${CMAKE_CURRENT_SOURCE_DIR}/include/variables.h>"
+ )
++endif()
+ 
+ ################################################################################
+ # Pre build events
+@@ -573,6 +651,22 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "CafeOS")
+     target_include_directories(${PROJECT_NAME} PRIVATE
+         ${DEVKITPRO}/portlibs/wiiu/include/
+     )
++elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
++    set(THREADS_PREFER_PTHREAD_FLAG ON)
++    find_package(Threads REQUIRED)
++    set(ADDITIONAL_LIBRARY_DEPENDENCIES
++        "libultraship;"
++        "ZAPDLib;"
++        SDL2::SDL2-static
++        SDL2::SDL2main
++        Ogg::ogg
++        Vorbis::vorbis
++        Vorbis::vorbisenc
++        Vorbis::vorbisfile
++        Opus::opus
++        OpusFile::opusfile
++        Threads::Threads
++    )
+ else()
+     find_package(SDL2)
+     set(THREADS_PREFER_PTHREAD_FLAG ON)
+@@ -599,7 +693,7 @@ else()
+ 
+ endif()
+ 
+-if(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin|NintendoSwitch|CafeOS")
++if(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS|NintendoSwitch|CafeOS")
+ INSTALL(TARGETS 2ship DESTINATION . COMPONENT 2s2h)
+ endif()
+ 
+@@ -608,15 +702,37 @@ INSTALL(FILES $<TARGET_PDB_FILE:2ship> DESTINATION ./debug COMPONENT 2s2h)
+ INSTALL(FILES ${CMAKE_BINARY_DIR}/mm/2ship.o2r DESTINATION . COMPONENT 2s2h)
+ endif()
+ 
+-find_program(CURL NAMES curl DOC "Path to the curl program.  Used to download files.")
+-execute_process(COMMAND ${CURL} -sSfL https://raw.githubusercontent.com/gabomdq/SDL_GameControllerDB/master/gamecontrollerdb.txt -o ${CMAKE_BINARY_DIR}/gamecontrollerdb.txt OUTPUT_VARIABLE RESULT)
++find_program(CURL NAMES curl DOC "Path to the curl program. Used to download files.")
++if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
++    set(CONTROLLER_DB_COMMIT "03d390c37b1342fcb7d8d294cd9621ab9d640bb3")
++    set(CONTROLLER_DB_SHA256 "eb002773dc8a16aa96f9ee2609798e231a9deb60c45e21fbdd4e221c9e8b7d77")
++    set(CONTROLLER_DB_URL
++        "https://raw.githubusercontent.com/gabomdq/SDL_GameControllerDB/${CONTROLLER_DB_COMMIT}/gamecontrollerdb.txt")
++else()
++    set(CONTROLLER_DB_URL
++        "https://raw.githubusercontent.com/gabomdq/SDL_GameControllerDB/master/gamecontrollerdb.txt")
++endif()
++execute_process(
++    COMMAND ${CURL} -sSfL ${CONTROLLER_DB_URL}
++        -o ${CMAKE_BINARY_DIR}/gamecontrollerdb.txt
++    RESULT_VARIABLE CONTROLLER_DB_RESULT
++)
++if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
++    if(NOT CONTROLLER_DB_RESULT EQUAL 0)
++        message(FATAL_ERROR "Failed to download pinned controller mappings")
++    endif()
++    file(SHA256 ${CMAKE_BINARY_DIR}/gamecontrollerdb.txt CONTROLLER_DB_ACTUAL_SHA256)
++    if(NOT CONTROLLER_DB_ACTUAL_SHA256 STREQUAL CONTROLLER_DB_SHA256)
++        message(FATAL_ERROR "Pinned controller mapping checksum mismatch")
++    endif()
++endif()
+ 
+ if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
+ configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/macosx/Info.plist.in ${CMAKE_BINARY_DIR}/macosx/Info.plist @ONLY)
+ INSTALL(TARGETS 2ship DESTINATION ../MacOS COMPONENT 2s2h)
+ INSTALL(FILES ${CMAKE_BINARY_DIR}/gamecontrollerdb.txt DESTINATION ../MacOS COMPONENT 2s2h)
+ INSTALL(FILES ${CMAKE_BINARY_DIR}/mm/2ship.o2r DESTINATION ../Resources COMPONENT 2s2h)
+-elseif(NOT "${CMAKE_SYSTEM_NAME}" MATCHES "NintendoSwitch|CafeOS")
++elseif(NOT "${CMAKE_SYSTEM_NAME}" MATCHES "iOS|NintendoSwitch|CafeOS")
+ INSTALL(FILES ${CMAKE_BINARY_DIR}/gamecontrollerdb.txt DESTINATION . COMPONENT 2s2h)
+ endif()
+ 
+diff --git a/mm/src/code/main.c b/mm/src/code/main.c
+index b94cce0b5..16a8cfc1a 100644
+--- a/mm/src/code/main.c
++++ b/mm/src/code/main.c
+@@ -49,11 +49,11 @@ size_t gSystemHeapSize = 0;
+ 
+ void InitOTR();
+ void Heaps_Free(void);
+-#ifdef __GNUC__
++#if defined(__GNUC__) && !defined(__IOS__)
+ #define SDL_main main
+ #endif
+ 
+-void SDL_main(int argc, char** argv /* void* arg*/) {
++int SDL_main(int argc, char** argv /* void* arg*/) {
+     intptr_t fb;
+     intptr_t sysHeap;
+     s32 exit;
+@@ -151,4 +151,5 @@ void SDL_main(int argc, char** argv /* void* arg*/) {
+     FreeConsole();
+ #endif
+     Heaps_Free();
++    return 0;
+ }
+diff --git a/mm/src/code/z_parameter.c b/mm/src/code/z_parameter.c
+index 9972a1e00..b6fbaaea6 100644
+--- a/mm/src/code/z_parameter.c
++++ b/mm/src/code/z_parameter.c
+@@ -25,6 +25,9 @@
+ #include "2s2h/GameInteractor/GameInteractor.h"
+ #include <libultraship/bridge/gfxbridge.h>
+ #include <libultraship/bridge/consolevariablebridge.h>
++#ifdef __IOS__
++#include "ios/MaskPadTouchControls.h"
++#endif
+ 
+ // 2S2H [Port] This was originally static but needs to be global so it can be accessed in z_kaleido_collect,
+ // z_kaleido_debug, and z_kaleido_draw.
+@@ -5850,6 +5853,23 @@ void Interface_SetPerspectiveView(PlayState* play, s32 topY, s32 bottomY, s32 le
+     }
+     // #endregion
+ 
++#ifdef __IOS__
++    float nativeHudX;
++    float nativeHudY;
++    if (MaskPad_GetNativeHudButtonCenter(MASKPAD_HUD_BUTTON_A, OTRGetAspectRatio(), &nativeHudX, &nativeHudY)) {
++        const float nativeHudScale =
++            MaskPad_GetNativeHudButtonScale(MASKPAD_HUD_BUTTON_A, OTRGetAspectRatio());
++        const float width = (rightX - leftX) * nativeHudScale;
++        const float height = (bottomY - topY) * nativeHudScale;
++        const s16 nativeLeft = nativeHudX - width * 0.5f;
++        const s16 nativeTop = nativeHudY - height * 0.5f;
++        interfaceCtx->viewport.leftX = OTRConvertHUDXToScreenX(nativeLeft);
++        interfaceCtx->viewport.rightX = OTRConvertHUDXToScreenX(nativeLeft + width);
++        interfaceCtx->viewport.topY = nativeTop;
++        interfaceCtx->viewport.bottomY = nativeTop + height;
++    }
++#endif
++
+     View_SetViewport(&interfaceCtx->view, &interfaceCtx->viewport);
+ 
+     View_SetPerspective(&interfaceCtx->view, 60.0f, 10.0f, 60.0f);
+@@ -5890,6 +5910,51 @@ void Interface_DrawItemButtons(PlayState* play) {
+     MessageContext* msgCtx = &play->msgCtx;
+     s16 temp; // Used as both an alpha value and a button index
+     s32 pad;
++    s16 buttonXPositions[] = {
++        sBCButtonXPositions[EQUIP_SLOT_B],
++        sBCButtonXPositions[EQUIP_SLOT_C_LEFT],
++        sBCButtonXPositions[EQUIP_SLOT_C_DOWN],
++        sBCButtonXPositions[EQUIP_SLOT_C_RIGHT],
++    };
++    s16 buttonYPositions[] = {
++        sBCButtonYPositions[EQUIP_SLOT_B],
++        sBCButtonYPositions[EQUIP_SLOT_C_LEFT],
++        sBCButtonYPositions[EQUIP_SLOT_C_DOWN],
++        sBCButtonYPositions[EQUIP_SLOT_C_RIGHT],
++    };
++    s16 buttonSizes[] = {
++        sBCButtonSizes[EQUIP_SLOT_B],
++        sBCButtonSizes[EQUIP_SLOT_C_LEFT],
++        sBCButtonSizes[EQUIP_SLOT_C_DOWN],
++        sBCButtonSizes[EQUIP_SLOT_C_RIGHT],
++    };
++    s16 buttonScales[] = {
++        sBCButtonScales[EQUIP_SLOT_B],
++        sBCButtonScales[EQUIP_SLOT_C_LEFT],
++        sBCButtonScales[EQUIP_SLOT_C_DOWN],
++        sBCButtonScales[EQUIP_SLOT_C_RIGHT],
++    };
++#ifdef __IOS__
++    static const s16 nativeHudButtons[] = {
++        MASKPAD_HUD_BUTTON_B,
++        MASKPAD_HUD_BUTTON_C_LEFT,
++        MASKPAD_HUD_BUTTON_C_DOWN,
++        MASKPAD_HUD_BUTTON_C_RIGHT,
++    };
++    for (s16 button = EQUIP_SLOT_B; button <= EQUIP_SLOT_C_RIGHT; button++) {
++        float nativeHudX;
++        float nativeHudY;
++        if (MaskPad_GetNativeHudButtonCenter(nativeHudButtons[button], OTRGetAspectRatio(), &nativeHudX,
++                                               &nativeHudY)) {
++            const float nativeHudScale =
++                MaskPad_GetNativeHudButtonScale(nativeHudButtons[button], OTRGetAspectRatio());
++            buttonSizes[button] = MAX(1, buttonSizes[button] * nativeHudScale);
++            buttonScales[button] = MAX(1, buttonScales[button] / nativeHudScale);
++            buttonXPositions[button] = nativeHudX - buttonSizes[button] * 0.5f;
++            buttonYPositions[button] = nativeHudY - buttonSizes[button] * 0.5f;
++        }
++    }
++#endif
+ 
+     OPEN_DISPS(play->state.gfxCtx);
+ 
+@@ -5913,30 +5978,30 @@ void Interface_DrawItemButtons(PlayState* play) {
+     // B Button Color & Texture
+     HudEditor_SetActiveElement(HUD_EDITOR_ELEMENT_B);
+     OVERLAY_DISP = Gfx_DrawTexRectIA8_DropShadowOverride(
+-        OVERLAY_DISP, gButtonBackgroundTex, 32, 32, sBCButtonXPositions[EQUIP_SLOT_B],
+-        sBCButtonYPositions[EQUIP_SLOT_B], sBCButtonSizes[EQUIP_SLOT_B], sBCButtonSizes[EQUIP_SLOT_B],
+-        sBCButtonScales[EQUIP_SLOT_B] * 2, sBCButtonScales[EQUIP_SLOT_B] * 2, 100, 255, 120, interfaceCtx->bAlpha,
++        OVERLAY_DISP, gButtonBackgroundTex, 32, 32, buttonXPositions[EQUIP_SLOT_B],
++        buttonYPositions[EQUIP_SLOT_B], buttonSizes[EQUIP_SLOT_B], buttonSizes[EQUIP_SLOT_B],
++        buttonScales[EQUIP_SLOT_B] * 2, buttonScales[EQUIP_SLOT_B] * 2, 100, 255, 120, interfaceCtx->bAlpha,
+         COSMETIC_ELEMENT_B_BUTTON);
+     gDPPipeSync(OVERLAY_DISP++);
+ 
+     // C-Left Button Color & Texture
+     HudEditor_SetActiveElement(HUD_EDITOR_ELEMENT_C_LEFT);
+     OVERLAY_DISP = Gfx_DrawRect_DropShadowOverride(
+-        OVERLAY_DISP, sBCButtonXPositions[EQUIP_SLOT_C_LEFT], sBCButtonYPositions[EQUIP_SLOT_C_LEFT],
+-        sBCButtonSizes[EQUIP_SLOT_C_LEFT], sBCButtonSizes[EQUIP_SLOT_C_LEFT], sBCButtonScales[EQUIP_SLOT_C_LEFT] * 2,
+-        sBCButtonScales[EQUIP_SLOT_C_LEFT] * 2, 255, 240, 0, interfaceCtx->cLeftAlpha, COSMETIC_ELEMENT_C_LEFT_BUTTON);
++        OVERLAY_DISP, buttonXPositions[EQUIP_SLOT_C_LEFT], buttonYPositions[EQUIP_SLOT_C_LEFT],
++        buttonSizes[EQUIP_SLOT_C_LEFT], buttonSizes[EQUIP_SLOT_C_LEFT], buttonScales[EQUIP_SLOT_C_LEFT] * 2,
++        buttonScales[EQUIP_SLOT_C_LEFT] * 2, 255, 240, 0, interfaceCtx->cLeftAlpha, COSMETIC_ELEMENT_C_LEFT_BUTTON);
+     // C-Down Button Color & Texture
+     HudEditor_SetActiveElement(HUD_EDITOR_ELEMENT_C_DOWN);
+     OVERLAY_DISP = Gfx_DrawRect_DropShadowOverride(
+-        OVERLAY_DISP, sBCButtonXPositions[EQUIP_SLOT_C_DOWN], sBCButtonYPositions[EQUIP_SLOT_C_DOWN],
+-        sBCButtonSizes[EQUIP_SLOT_C_DOWN], sBCButtonSizes[EQUIP_SLOT_C_DOWN], sBCButtonScales[EQUIP_SLOT_C_DOWN] * 2,
+-        sBCButtonScales[EQUIP_SLOT_C_DOWN] * 2, 255, 240, 0, interfaceCtx->cDownAlpha, COSMETIC_ELEMENT_C_DOWN_BUTTON);
++        OVERLAY_DISP, buttonXPositions[EQUIP_SLOT_C_DOWN], buttonYPositions[EQUIP_SLOT_C_DOWN],
++        buttonSizes[EQUIP_SLOT_C_DOWN], buttonSizes[EQUIP_SLOT_C_DOWN], buttonScales[EQUIP_SLOT_C_DOWN] * 2,
++        buttonScales[EQUIP_SLOT_C_DOWN] * 2, 255, 240, 0, interfaceCtx->cDownAlpha, COSMETIC_ELEMENT_C_DOWN_BUTTON);
+     // C-Right Button Color & Texture
+     HudEditor_SetActiveElement(HUD_EDITOR_ELEMENT_C_RIGHT);
+     OVERLAY_DISP = Gfx_DrawRect_DropShadowOverride(
+-        OVERLAY_DISP, sBCButtonXPositions[EQUIP_SLOT_C_RIGHT], sBCButtonYPositions[EQUIP_SLOT_C_RIGHT],
+-        sBCButtonSizes[EQUIP_SLOT_C_RIGHT], sBCButtonSizes[EQUIP_SLOT_C_RIGHT], sBCButtonScales[EQUIP_SLOT_C_RIGHT] * 2,
+-        sBCButtonScales[EQUIP_SLOT_C_RIGHT] * 2, 255, 240, 0, interfaceCtx->cRightAlpha,
++        OVERLAY_DISP, buttonXPositions[EQUIP_SLOT_C_RIGHT], buttonYPositions[EQUIP_SLOT_C_RIGHT],
++        buttonSizes[EQUIP_SLOT_C_RIGHT], buttonSizes[EQUIP_SLOT_C_RIGHT], buttonScales[EQUIP_SLOT_C_RIGHT] * 2,
++        buttonScales[EQUIP_SLOT_C_RIGHT] * 2, 255, 240, 0, interfaceCtx->cRightAlpha,
+         COSMETIC_ELEMENT_C_RIGHT_BUTTON);
+ 
+     if (!IS_PAUSE_STATE_GAMEOVER(pauseCtx)) {
+@@ -5987,6 +6052,24 @@ void Interface_DrawItemButtons(PlayState* play) {
+     if (interfaceCtx->tatlCalling && !IS_PAUSED(&play->pauseCtx) && (play->csCtx.state == CS_STATE_IDLE) &&
+         (sPictoState == PICTO_BOX_STATE_OFF)) {
+         if (sCUpInvisible == 0) {
++            s16 cUpLeft = 254;
++            s16 cUpTop = 16;
++            s16 cUpSize = 16;
++            s16 cUpScale = 2 << 10;
++            float nativeHudCUpScale = 1.0f;
++#ifdef __IOS__
++            float nativeHudX;
++            float nativeHudY;
++            if (MaskPad_GetNativeHudButtonCenter(MASKPAD_HUD_BUTTON_C_UP, OTRGetAspectRatio(), &nativeHudX,
++                                                   &nativeHudY)) {
++                nativeHudCUpScale =
++                    MaskPad_GetNativeHudButtonScale(MASKPAD_HUD_BUTTON_C_UP, OTRGetAspectRatio());
++                cUpSize = MAX(1, cUpSize * nativeHudCUpScale);
++                cUpScale = MAX(1, cUpScale / nativeHudCUpScale);
++                cUpLeft = nativeHudX - cUpSize * 0.5f;
++                cUpTop = nativeHudY - cUpSize * 0.5f;
++            }
++#endif
+             // C-Up Button Texture, Color & Label (Tatl Text)
+             gDPPipeSync(OVERLAY_DISP++);
+ 
+@@ -6002,7 +6085,8 @@ void Interface_DrawItemButtons(PlayState* play) {
+             }
+ 
+             HudEditor_SetActiveElement(HUD_EDITOR_ELEMENT_C_UP);
+-            OVERLAY_DISP = Gfx_DrawRect_DropShadow(OVERLAY_DISP, 254, 16, 16, 16, 2 << 10, 2 << 10, 255, 240, 0, temp);
++            OVERLAY_DISP = Gfx_DrawRect_DropShadow(OVERLAY_DISP, cUpLeft, cUpTop, cUpSize, cUpSize, cUpScale, cUpScale,
++                                                   255, 240, 0, temp);
+ 
+             gDPPipeSync(OVERLAY_DISP++);
+             gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, temp);
+@@ -6021,12 +6105,12 @@ void Interface_DrawItemButtons(PlayState* play) {
+                     hudEditorActiveElement = HUD_EDITOR_ELEMENT_NONE;
+                 } else {
+                     // All of this information was derived from the original call to gSPTextureRectangle below
+-                    s16 rectLeft = 0x03DC / 4;
+-                    s16 rectTop = 0x0048 / 4;
+-                    s16 rectWidth = 0x045C / 4;
+-                    s16 rectHeight = (0x0078 / 4) - rectTop;
+-                    s16 dsdx = 512;
+-                    s16 dtdy = 512;
++                    s16 rectWidth = MAX(1, 32 * nativeHudCUpScale);
++                    s16 rectHeight = MAX(1, 12 * nativeHudCUpScale);
++                    s16 rectLeft = cUpLeft + (cUpSize - rectWidth) / 2;
++                    s16 rectTop = cUpTop + MAX(1, 2 * nativeHudCUpScale);
++                    s16 dsdx = MAX(1, (1 << 10) * 32 / rectWidth);
++                    s16 dtdy = MAX(1, (1 << 10) * 12 / rectHeight);
+ 
+                     HudEditor_ModifyDrawValues(&rectLeft, &rectTop, &rectWidth, &rectHeight, &dsdx, &dtdy);
+ 
+@@ -6037,8 +6121,14 @@ void Interface_DrawItemButtons(PlayState* play) {
+                 }
+             } else {
+                 // #endregion
+-                gSPTextureRectangle(OVERLAY_DISP++, 247 << 2, 18 << 2, (247 + 32) << 2, (18 + 12) << 2, G_TX_RENDERTILE,
+-                                    0, 0, 1 << 10, 1 << 10);
++                const s16 labelWidth = MAX(1, 32 * nativeHudCUpScale);
++                const s16 labelHeight = MAX(1, 12 * nativeHudCUpScale);
++                const s16 labelLeft = cUpLeft + (cUpSize - labelWidth) / 2;
++                const s16 labelTop = cUpTop + MAX(1, 2 * nativeHudCUpScale);
++                gSPWideTextureRectangle(
++                    OVERLAY_DISP++, labelLeft << 2, labelTop << 2, (labelLeft + labelWidth) << 2,
++                    (labelTop + labelHeight) << 2, G_TX_RENDERTILE, 0, 0, (1 << 10) * 32 / labelWidth,
++                    (1 << 10) * 12 / labelHeight);
+             }
+         }
+ 
+@@ -6066,9 +6156,9 @@ void Interface_DrawItemButtons(PlayState* play) {
+             }
+             HudEditor_SetActiveElement(temp);
+             OVERLAY_DISP =
+-                Gfx_DrawTexRectIA8(OVERLAY_DISP, emptyCButtonArrows[temp - 1], 0x20, 0x20, sBCButtonXPositions[temp],
+-                                   sBCButtonYPositions[temp], sBCButtonSizes[temp], sBCButtonSizes[temp],
+-                                   sBCButtonScales[temp] * 2, sBCButtonScales[temp] * 2);
++                Gfx_DrawTexRectIA8(OVERLAY_DISP, emptyCButtonArrows[temp - 1], 0x20, 0x20, buttonXPositions[temp],
++                                   buttonYPositions[temp], buttonSizes[temp], buttonSizes[temp],
++                                   buttonScales[temp] * 2, buttonScales[temp] * 2);
+         }
+     }
+ 
+@@ -6216,6 +6306,32 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
+         24, // EQUIP_SLOT_C_DOWN
+         24, // EQUIP_SLOT_C_RIGHT
+     };
++    s16 rectLeft = sBCButtonXPositions[button];
++    s16 rectTop = sBCButtonYPositions[button];
++    s16 rectWidth = sItemIconTextureDimensions[button];
++    s16 rectHeight = sItemIconTextureDimensions[button];
++    s16 dsdx = sItemIconTextureScales[button];
++    s16 dtdy = sItemIconTextureScales[button];
++#ifdef __IOS__
++    static const s16 nativeHudButtons[] = {
++        MASKPAD_HUD_BUTTON_B,
++        MASKPAD_HUD_BUTTON_C_LEFT,
++        MASKPAD_HUD_BUTTON_C_DOWN,
++        MASKPAD_HUD_BUTTON_C_RIGHT,
++    };
++    float nativeHudX;
++    float nativeHudY;
++    if (MaskPad_GetNativeHudButtonCenter(nativeHudButtons[button], OTRGetAspectRatio(), &nativeHudX, &nativeHudY)) {
++        const float nativeHudScale =
++            MaskPad_GetNativeHudButtonScale(nativeHudButtons[button], OTRGetAspectRatio());
++        rectWidth = MAX(1, rectWidth * nativeHudScale);
++        rectHeight = rectWidth;
++        dsdx = MAX(1, dsdx / nativeHudScale);
++        dtdy = dsdx;
++        rectLeft = nativeHudX - rectWidth * 0.5f;
++        rectTop = nativeHudY - rectHeight * 0.5f;
++    }
++#endif
+ 
+     OPEN_DISPS(play->state.gfxCtx);
+ 
+@@ -6231,13 +6347,6 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
+             hudEditorActiveElement = HUD_EDITOR_ELEMENT_NONE;
+         } else {
+             // All of this information was derived from the original call to gSPTextureRectangle below
+-            s16 rectLeft = sBCButtonXPositions[button];
+-            s16 rectTop = sBCButtonYPositions[button];
+-            s16 rectWidth = sItemIconTextureDimensions[button];
+-            s16 rectHeight = sItemIconTextureDimensions[button];
+-            s16 dsdx = sItemIconTextureScales[button];
+-            s16 dtdy = sItemIconTextureScales[button];
+-
+             HudEditor_ModifyDrawValues(&rectLeft, &rectTop, &rectWidth, &rectHeight, &dsdx, &dtdy);
+ 
+             hudEditorActiveElement = HUD_EDITOR_ELEMENT_NONE;
+@@ -6247,10 +6356,8 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
+         }
+         // #endregion
+     } else {
+-        gSPTextureRectangle(OVERLAY_DISP++, sBCButtonXPositions[button] << 2, sBCButtonYPositions[button] << 2,
+-                            (sBCButtonXPositions[button] + sItemIconTextureDimensions[button]) << 2,
+-                            (sBCButtonYPositions[button] + sItemIconTextureDimensions[button]) << 2, G_TX_RENDERTILE, 0,
+-                            0, sItemIconTextureScales[button] << 1, sItemIconTextureScales[button] << 1);
++        gSPWideTextureRectangle(OVERLAY_DISP++, rectLeft << 2, rectTop << 2, (rectLeft + rectWidth) << 2,
++                                (rectTop + rectHeight) << 2, G_TX_RENDERTILE, 0, 0, dsdx << 1, dtdy << 1);
+     }
+ 
+     CLOSE_DISPS(play->state.gfxCtx);
+@@ -6259,6 +6366,26 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
+ void Interface_DrawAmmoCount(PlayState* play, s16 button, s16 alpha) {
+     static s16 sAmmoDigitsXPositions[] = { 162, 228, 250, 272 };
+     static s16 sAmmoDigitsYPositions[] = { 35, 35, 51, 35 };
++    s16 ammoX = sAmmoDigitsXPositions[button];
++    s16 ammoY = sAmmoDigitsYPositions[button];
++#ifdef __IOS__
++    static const s16 nativeHudButtons[] = {
++        MASKPAD_HUD_BUTTON_B,
++        MASKPAD_HUD_BUTTON_C_LEFT,
++        MASKPAD_HUD_BUTTON_C_DOWN,
++        MASKPAD_HUD_BUTTON_C_RIGHT,
++    };
++    static const s16 nativeButtonSizes[] = { 30, 27, 27, 27 };
++    float nativeHudX;
++    float nativeHudY;
++    if (MaskPad_GetNativeHudButtonCenter(nativeHudButtons[button], OTRGetAspectRatio(), &nativeHudX, &nativeHudY)) {
++        const float nativeHudScale =
++            MaskPad_GetNativeHudButtonScale(nativeHudButtons[button], OTRGetAspectRatio());
++        const float nativeButtonSize = nativeButtonSizes[button] * nativeHudScale;
++        ammoX = nativeHudX - nativeButtonSize * 0.5f + 1;
++        ammoY = nativeHudY - nativeButtonSize * 0.5f + MAX(12.0f, 17.0f * nativeHudScale);
++    }
++#endif
+     u8 i;
+     u16 ammo;
+     OPEN_DISPS(play->state.gfxCtx);
+@@ -6320,15 +6447,13 @@ void Interface_DrawAmmoCount(PlayState* play, s16 button, s16 alpha) {
+             HudEditor_SetActiveElement(button);
+             OVERLAY_DISP =
+                 Gfx_DrawTexRectIA8(OVERLAY_DISP, gAmmoDigitTextures[i], AMMO_DIGIT_TEX_WIDTH, AMMO_DIGIT_TEX_HEIGHT,
+-                                   sAmmoDigitsXPositions[button], sAmmoDigitsYPositions[button], AMMO_DIGIT_TEX_WIDTH,
+-                                   AMMO_DIGIT_TEX_HEIGHT, 1 << 10, 1 << 10);
++                                   ammoX, ammoY, AMMO_DIGIT_TEX_WIDTH, AMMO_DIGIT_TEX_HEIGHT, 1 << 10, 1 << 10);
+         }
+ 
+         // Draw lower digit (ones)
+         HudEditor_SetActiveElement(button);
+         OVERLAY_DISP =
+-            Gfx_DrawTexRectIA8(OVERLAY_DISP, gAmmoDigitTextures[ammo], 8, 8, sAmmoDigitsXPositions[button] + 6,
+-                               sAmmoDigitsYPositions[button], 8, 8, 1 << 10, 1 << 10);
++            Gfx_DrawTexRectIA8(OVERLAY_DISP, gAmmoDigitTextures[ammo], 8, 8, ammoX + 6, ammoY, 8, 8, 1 << 10, 1 << 10);
+     }
+ 
+     CLOSE_DISPS(play->state.gfxCtx);
+@@ -8888,6 +9013,12 @@ void Interface_Draw(PlayState* play) {
+     s16 counterDigits[4];
+     s16 magicAlpha;
+ 
++#ifdef __IOS__
++    MaskPad_SetNativeHudTouchGameplayActive(gSaveContext.gameMode == GAMEMODE_NORMAL &&
++                                               pauseCtx->state == PAUSE_STATE_OFF &&
++                                               pauseCtx->debugEditor == DEBUG_EDITOR_NONE);
++#endif
++
+     OPEN_DISPS(play->state.gfxCtx);
+ 
+     gSPSegment(OVERLAY_DISP++, 0x02, interfaceCtx->parameterSegment);
+diff --git a/mm/src/code/z_play.c b/mm/src/code/z_play.c
+index 1b568b522..d1e305fc8 100644
+--- a/mm/src/code/z_play.c
++++ b/mm/src/code/z_play.c
+@@ -4,6 +4,9 @@
+ #include "z64vismono.h"
+ #include "z64visfbuf.h"
+ #include <libultraship/bridge/consolevariablebridge.h>
++#ifdef __IOS__
++#include "ios/MaskPadTouchControls.h"
++#endif
+ 
+ // Variables are put before most headers as a hacky way to bypass bss reordering
+ s16 sTransitionFillTimer;
+@@ -411,6 +414,10 @@ void Play_Destroy(GameState* thisx) {
+     PlayState* this = (PlayState*)thisx;
+     GraphicsContext* gfxCtx = this->state.gfxCtx;
+ 
++#ifdef __IOS__
++    MaskPad_SetNativeHudTouchGameplayActive(0);
++#endif
++
+     if (sBombersNotebookOpen) {
+         MsgEvent_SendNullTask();
+         SysCfb_SetLoResMode();
+@@ -1112,6 +1119,11 @@ void Play_Update(PlayState* this) {
+ void Play_Update(PlayState* this) {
++#if defined(__IOS__) && defined(MASKPAD_UI_TEST_HARNESS)
++    MaskPad_ReportConsumedInput(this->state.input[0].cur.button,
++                                this->state.input[0].cur.stick_x,
++                                this->state.input[0].cur.stick_y);
++#endif
+     if (!sBombersNotebookOpen) {
+         if (this->pauseCtx.bombersNotebookOpen) {
+             sBombersNotebookOpen = true;
+             sBombersNotebook.loadState = BOMBERS_NOTEBOOK_LOAD_STATE_NONE;
+         }
