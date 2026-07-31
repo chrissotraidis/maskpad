@@ -93,6 +93,10 @@ Run each gate on a representative landscape iPhone and iPad:
   `CAMetalDrawable` texture; after correcting ownership, the engine-consumption
   test backgrounded and terminated cleanly on both device classes without
   producing a new crash report;
+- the replacement 1024×1024 opaque forest-talisman icon compiled through
+  Xcode's asset catalog into the expected iPhone `120×120` and iPad `152×152`
+  app-icon products, and remained legible in direct 120-pixel and 60-pixel
+  downsample checks;
 - the final regenerated unsigned IPA has SHA-256
   `e5af976244f73f78ca5a5b24045d1b6a9d4812b0e1cf74f7c4c7d5266412ac7b`;
 - arm64 iPad Pro 11-inch (M4), iOS 18.5 Simulator;

@@ -29,9 +29,9 @@ game ROM or ROM-derived playable archive is included in this repository or
 its ROM-free packages. Users must provide their own legally acquired,
 supported game copy.
 
-The original abstract mask-and-controls icon in `ios/IconSource.svg` is
-MaskPad artwork. It does not reproduce Nintendo character, logo, or game
-artwork.
+The original forest-talisman icon in `ios/IconSource.png` was created
+specifically for MaskPad. It does not reproduce Nintendo character, logo,
+game artwork, or a recognizable game symbol.
 
 MaskPad is an independent community project and is not affiliated with or
 endorsed by Nintendo or Harbour Masters. Written legal review remains a gate

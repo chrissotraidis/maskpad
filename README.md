@@ -7,10 +7,6 @@
 </p>
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/chrissotraidis"><img alt="Buy me a coffee" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="36"></a>
-</p>
-
-<p align="center">
   <a href="https://github.com/chrissotraidis/maskpad/actions/workflows/ios-build.yml"><img alt="MaskPad iOS build" src="https://github.com/chrissotraidis/maskpad/actions/workflows/ios-build.yml/badge.svg"></a>
   <img alt="iOS 14+" src="https://img.shields.io/badge/iOS%20%2F%20iPadOS-14%2B-0A84FF?logo=apple">
   <img alt="Metal renderer" src="https://img.shields.io/badge/renderer-Metal-5E5CE6">
@@ -19,9 +15,7 @@
   <img alt="ROM not included" src="https://img.shields.io/badge/game%20data-not%20included-FF453A">
 </p>
 
-<p align="center">
-  <img src="ios/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png" width="240" alt="MaskPad app icon">
-</p>
+![Reserved MaskPad gameplay hero capture](docs/readme/maskpad-gameplay-placeholder.svg)
 
 MaskPad packages the full
 [2 Ship 2 Harkinian](https://github.com/HarbourMasters/2ship2harkinian)
@@ -144,6 +138,29 @@ pass on the representative iPhone and iPad Simulators.
 
 See [`docs/controls.md`](docs/controls.md) for the full behavior contract and
 [`docs/testing.md`](docs/testing.md) for the exact evidence.
+
+## Current screenshots
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/readme/maskpad-controls-placeholder.svg" alt="Reserved MaskPad touch gameplay capture">
+    </td>
+    <td width="50%">
+      <img src="docs/readme/maskpad-settings-placeholder.svg" alt="Reserved MaskPad settings capture">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Touch-first gameplay</strong><br>Reserved for an approved iPad gameplay capture with the complete controller visible.</td>
+    <td align="center"><strong>Adjust while running</strong><br>Reserved for the touch-layout editor or Controls settings on the current build.</td>
+  </tr>
+</table>
+
+The gallery now follows HarkinianPad's hero-plus-two-capture rhythm. The
+original placeholders keep the public tree free of copyrighted game imagery;
+replace them only with captures the maintainer has explicitly approved.
+The exact filenames, framing, and capture checklist live in
+[`docs/readme/README.md`](docs/readme/README.md).
 
 ## What works
 
@@ -273,6 +290,7 @@ therefore source-available, not broadly redistributable open source. See
 | [`docs/testing.md`](docs/testing.md) | Exact Simulator, gameplay, build, and package evidence |
 | [`docs/release-checklist.md`](docs/release-checklist.md) | Source and IPA publication gates |
 | [`docs/remaining-work.md`](docs/remaining-work.md) | Evidence ledger and remaining physical gates |
+| [`docs/readme/`](docs/readme/) | Approved screenshot slots and capture guidance |
 
 Generated source trees, builds, artifacts, ROMs, and ROM-derived archives are
 ignored and must never be committed.

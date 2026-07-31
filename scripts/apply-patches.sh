@@ -29,7 +29,7 @@ apply_patch_once "$SOURCE/ZAPDTR" "$ROOT/patches/zapdtr-ios.patch"
 
 mkdir -p "$SOURCE/CMake" "$SOURCE/mm/ios"
 cp "$ROOT/port/CMake/ios.cmake" "$SOURCE/CMake/ios.cmake"
-rsync -a --checksum "$ROOT/ios/" "$SOURCE/mm/ios/"
+rsync -a --checksum --delete "$ROOT/ios/" "$SOURCE/mm/ios/"
 
 diff -q "$ROOT/port/CMake/ios.cmake" "$SOURCE/CMake/ios.cmake" >/dev/null
 diff -qr "$ROOT/ios" "$SOURCE/mm/ios" >/dev/null

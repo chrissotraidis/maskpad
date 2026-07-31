@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">MaskPad touch gameplay screenshot slot</title>
+  <desc id="desc">Original placeholder for a future approved touch gameplay capture.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#090c18"/>
+      <stop offset=".5" stop-color="#241139"/>
+      <stop offset="1" stop-color="#0b261d"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7746ad"/>
+      <stop offset=".36" stop-color="#bc454a"/>
+      <stop offset=".68" stop-color="#d29a38"/>
+      <stop offset="1" stop-color="#5c8d37"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect x="86" y="75" width="1028" height="482" rx="28" fill="#080b12" stroke="#a97b35" stroke-width="4"/>
+  <path d="M90 440c175-105 302-30 445-105 170-88 365-54 575 60v158H90Z" fill="#132c25"/>
+  <g fill="none" stroke="#f0e6d1" stroke-width="6" opacity=".62">
+    <circle cx="220" cy="434" r="71"/>
+    <path d="M220 384v100M170 434h100"/>
+    <circle cx="954" cy="418" r="39"/>
+    <circle cx="1031" cy="469" r="34"/>
+    <circle cx="888" cy="480" r="34"/>
+  </g>
+  <rect x="358" y="518" width="484" height="5" rx="2.5" fill="url(#accent)"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" text-anchor="middle">
+    <text x="600" y="605" fill="#d3a854" font-size="20" letter-spacing="5">SCREENSHOT SLOT 02</text>
+    <text x="600" y="641" fill="#eee7d9" font-size="28" font-weight="650">Touch-first gameplay</text>
+  </g>
+</svg>

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">MaskPad gameplay screenshot slot</title>
+  <desc id="desc">Original placeholder for a future approved gameplay capture.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#080b18"/>
+      <stop offset=".48" stop-color="#17102d"/>
+      <stop offset="1" stop-color="#071c18"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".45" r=".55">
+      <stop offset="0" stop-color="#6f2da8" stop-opacity=".72"/>
+      <stop offset=".45" stop-color="#b33a46" stop-opacity=".24"/>
+      <stop offset="1" stop-color="#0a111d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a77b32"/>
+      <stop offset=".5" stop-color="#e3b652"/>
+      <stop offset="1" stop-color="#557c32"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#glow)"/>
+  <g opacity=".3" fill="none" stroke="url(#line)">
+    <circle cx="800" cy="420" r="292" stroke-width="2"/>
+    <circle cx="800" cy="420" r="238" stroke-width="1"/>
+    <path d="M520 420c85-170 475-170 560 0S885 690 800 690 435 590 520 420Z" stroke-width="3"/>
+  </g>
+  <rect x="226" y="115" width="1148" height="646" rx="44" fill="#05070d" stroke="#b58a3e" stroke-width="5"/>
+  <rect x="250" y="139" width="1100" height="598" rx="25" fill="#0c1420"/>
+  <path d="M250 592c210-114 322-58 480-132 184-86 356-55 620 84v193H250Z" fill="#132f27"/>
+  <path d="M250 648c208-91 390-22 548-67 211-60 347-24 552 58v98H250Z" fill="#24331f"/>
+  <circle cx="800" cy="404" r="112" fill="#3f1f5d" opacity=".75"/>
+  <circle cx="800" cy="404" r="66" fill="#d55242" opacity=".48"/>
+  <circle cx="800" cy="404" r="12" fill="#5fe5d0"/>
+  <g fill="#f2e8cf" opacity=".68">
+    <circle cx="365" cy="624" r="48"/>
+    <circle cx="1210" cy="605" r="38"/>
+    <circle cx="1270" cy="660" r="31"/>
+    <circle cx="1150" cy="666" r="31"/>
+  </g>
+  <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" text-anchor="middle">
+    <text x="800" y="812" fill="#d4aa55" font-size="24" letter-spacing="6">GAMEPLAY CAPTURE</text>
+    <text x="800" y="852" fill="#e9e2d2" font-size="34" font-weight="650">Reserved for an approved MaskPad screenshot</text>
+  </g>
+</svg>

@@ -12,6 +12,8 @@
 - [ ] first-run no-ROM and extraction gates on iPhone and iPad
 - [ ] full touch/editor/native-HUD matrix on iPhone and iPad
 - [ ] background/foreground and save persistence
+- [ ] 1024-pixel app-icon source is opaque, the asset catalog produces the
+      expected iPhone/iPad sizes, and both remain legible at home-screen scale
 - [ ] physical-device audio, performance, controls, and endurance
 - [ ] unsigned IPA audit
 - [ ] complete third-party notices and legal review
