@@ -75,6 +75,11 @@ after their exact gate is observed.
   `CAMetalDrawable` texture during background cleanup, then passed the
   engine-consumption, background, and termination regression on both
   representative device classes with no new crash reports.
+- Rebuilt the generic iPhoneOS app and unsigned IPA after the final app-icon
+  selection; the audited package SHA-256 is
+  `af2280cb89d5a123130e1b097960bd4bb4cdedce8c04ec0fcbd290c302c56275`.
+- Replaced the README screenshot placeholders with approved current-build
+  iPad Simulator gameplay, touch-controller, and Controls captures.
 
 All in-scope Simulator implementation gates are closed.
 

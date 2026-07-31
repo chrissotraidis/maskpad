@@ -199,7 +199,7 @@ Any divergence requires a minimal technical justification in this document.
 - The unsigned `MaskPad-0.1.0-unsigned.ipa` passed recursive ROM, generated
   game-data, signing-material, bundle-identity, archive, and architecture
   checks. The final package SHA-256 is
-  `e5af976244f73f78ca5a5b24045d1b6a9d4812b0e1cf74f7c4c7d5266412ac7b`.
+  `af2280cb89d5a123130e1b097960bd4bb4cdedce8c04ec0fcbd290c302c56275`.
 
 All Simulator implementation gates are closed. Physical-device, signing,
 legal-review, and distribution gates remain tracked in

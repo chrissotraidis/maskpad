@@ -98,7 +98,7 @@ Run each gate on a representative landscape iPhone and iPad:
   app-icon products, and remained legible in direct 120-pixel and 60-pixel
   downsample checks;
 - the final regenerated unsigned IPA has SHA-256
-  `e5af976244f73f78ca5a5b24045d1b6a9d4812b0e1cf74f7c4c7d5266412ac7b`;
+  `af2280cb89d5a123130e1b097960bd4bb4cdedce8c04ec0fcbd290c302c56275`;
 - arm64 iPad Pro 11-inch (M4), iOS 18.5 Simulator;
 - 2S2H 4.0.2 app bundle launched and loaded `2ship.o2r`;
 - a supplied ignored user ROM extracted 660 definitions in roughly 8 seconds

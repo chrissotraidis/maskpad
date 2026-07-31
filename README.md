@@ -15,7 +15,7 @@
   <img alt="ROM not included" src="https://img.shields.io/badge/game%20data-not%20included-FF453A">
 </p>
 
-![Reserved MaskPad gameplay hero capture](docs/readme/maskpad-gameplay-placeholder.svg)
+![MaskPad gameplay on an iPad Simulator with the complete touch controller](docs/readme/maskpad-gameplay.jpg)
 
 MaskPad packages the full
 [2 Ship 2 Harkinian](https://github.com/HarbourMasters/2ship2harkinian)
@@ -144,23 +144,22 @@ See [`docs/controls.md`](docs/controls.md) for the full behavior contract and
 <table>
   <tr>
     <td width="50%">
-      <img src="docs/readme/maskpad-controls-placeholder.svg" alt="Reserved MaskPad touch gameplay capture">
+      <img src="docs/readme/maskpad-controls.jpg" alt="MaskPad touch gameplay on the current iPad Simulator build">
     </td>
     <td width="50%">
-      <img src="docs/readme/maskpad-settings-placeholder.svg" alt="Reserved MaskPad settings capture">
+      <img src="docs/readme/maskpad-settings.jpg" alt="MaskPad Controls settings on the current iPad Simulator build">
     </td>
   </tr>
   <tr>
-    <td align="center"><strong>Touch-first gameplay</strong><br>Reserved for an approved iPad gameplay capture with the complete controller visible.</td>
-    <td align="center"><strong>Adjust while running</strong><br>Reserved for the touch-layout editor or Controls settings on the current build.</td>
+    <td align="center"><strong>Touch-first gameplay</strong><br>The complete landscape controller stays within thumb reach.</td>
+    <td align="center"><strong>Adjust while running</strong><br>Touch controls and layout customization live inside 2S2H's Controls page.</td>
   </tr>
 </table>
 
-The gallery now follows HarkinianPad's hero-plus-two-capture rhythm. The
-original placeholders keep the public tree free of copyrighted game imagery;
-replace them only with captures the maintainer has explicitly approved.
-The exact filenames, framing, and capture checklist live in
-[`docs/readme/README.md`](docs/readme/README.md).
+The hero and gallery were captured from the current iPad Pro 11-inch (M4),
+iOS 18.5 Simulator build using ignored, user-owned game data. No ROM or
+generated game archive is present in this repository. Capture provenance is
+recorded in [`docs/readme/README.md`](docs/readme/README.md).
 
 ## What works
 

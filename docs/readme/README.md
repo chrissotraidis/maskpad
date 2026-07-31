@@ -1,4 +1,4 @@
-# README capture slots
+# README captures
 
 MaskPad's README follows HarkinianPad's visual sequence:
 
@@ -6,23 +6,20 @@ MaskPad's README follows HarkinianPad's visual sequence:
 2. one touch-gameplay capture with the complete overlay visible; and
 3. one current settings or touch-layout-editor capture.
 
-The committed SVGs are original placeholders. Do not replace them with
-copyrighted game imagery unless the maintainer has explicitly approved the
-specific captures for publication.
+The maintainer approved the current captures for publication. They were taken
+from the MaskPad iPad Pro 11-inch (M4), iOS 18.5 Simulator build with ignored,
+user-owned game data. They contain no local paths, notifications, filenames,
+debug overlays, ROMs, or generated archives.
 
-## Final filenames
+## Published files
 
-| Slot | Publish as | Preferred framing |
+| Slot | File | Evidence |
 |---|---|---|
-| Hero | `maskpad-gameplay.jpg` | 16:9 iPad gameplay, touch controller visible, uncluttered scene |
-| Touch | `maskpad-controls.jpg` | 16:9 gameplay, all controls readable at README width |
-| Settings | `maskpad-settings.jpg` | 16:9 Controls page or layout editor from the current build |
+| Hero | `maskpad-gameplay.jpg` | Gameplay rendering and the complete iPad touch controller |
+| Touch | `maskpad-controls.jpg` | Gameplay with stick, D-pad, face buttons, shoulders, Z, and persistent menu visible |
+| Settings | `maskpad-settings.jpg` | Touch Controls, Legacy Fixed Touch Controls, and Customize Touch Layout in the live Controls page |
 
-When approved captures are ready, add the JPG files here and update the three
-image paths in the root `README.md`. Keep local paths, device names, debug
-overlays, personal notifications, and user-owned filenames out of the images.
-
-Before committing:
+Before replacing any capture:
 
 ```sh
 scripts/check-repo-safety.sh

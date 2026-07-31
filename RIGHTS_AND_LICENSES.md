@@ -29,6 +29,11 @@ game ROM or ROM-derived playable archive is included in this repository or
 its ROM-free packages. Users must provide their own legally acquired,
 supported game copy.
 
+The README gameplay screenshots are documentation captures from the current
+Simulator build using a user-owned game copy. Their inclusion does not grant
+rights to the depicted Nintendo game material or permit its reuse as project
+artwork or distributable game data.
+
 The original forest-talisman icon in `ios/IconSource.png` was created
 specifically for MaskPad. It does not reproduce Nintendo character, logo,
 game artwork, or a recognizable game symbol.
