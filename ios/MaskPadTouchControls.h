@@ -7,6 +7,7 @@ extern "C" {
 int MaskPad_TouchControlsAvailable(void);
 void MaskPad_SetTouchControlsEnabled(int enabled);
 void MaskPad_SetCustomizableTouchControlsEnabled(int enabled);
+void MaskPad_SetTouchControlsOpacity(float opacity);
 void MaskPad_BeginTouchLayoutEditing(void);
 void MaskPad_RunUITestMode(void);
 void MaskPad_SetTouchControlsMenuVisible(int visible);
@@ -29,6 +30,7 @@ void MaskPad_SetNativeHudTouchEnabled(int enabled);
 void MaskPad_SetNativeHudTouchGameplayActive(int active);
 int MaskPad_GetNativeHudButtonCenter(int button, float aspectRatio, float* x, float* y);
 float MaskPad_GetNativeHudButtonScale(int button, float aspectRatio);
+int MaskPad_GetNativeHudTouchAlpha(int alpha);
 
 #ifdef __cplusplus
 }

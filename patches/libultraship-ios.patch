@@ -79,6 +79,35 @@ index eb93fea4..644bcc26 100644
 -include(${CMAKE_IOS_TOOLCHAIN_FILE})
 \ No newline at end of file
 +include(${CMAKE_IOS_TOOLCHAIN_FILE})
+diff --git a/include/fast/backends/gfx_metal.h b/include/fast/backends/gfx_metal.h
+index b926895a..13961899 100644
+--- a/include/fast/backends/gfx_metal.h
++++ b/include/fast/backends/gfx_metal.h
+@@ -29,6 +29,7 @@ class Device;
+ class Function;
+ class Buffer;
+ class RenderPipelineState;
++class DepthStencilState;
+ class CommandQueue;
+ class Viewport;
+ } // namespace MTL
+@@ -116,7 +117,7 @@ struct CoordUniforms {
+
+ class GfxRenderingAPIMetal final : public GfxRenderingAPI {
+   public:
+-    ~GfxRenderingAPIMetal() override = default;
++    ~GfxRenderingAPIMetal() override;
+     const char* GetName() override;
+     int GetMaxTextureSize() override;
+     GfxClipParameters GetClipParameters() override;
+@@ -184,6 +185,7 @@ class GfxRenderingAPIMetal final : public GfxRenderingAPI {
+     FrameUniforms mFrameUniforms;
+     CoordUniforms mCoordUniforms;
+     MTL::Buffer* mFrameUniformBuffer;
++    MTL::DepthStencilState* mDepthStencilStates[2][2][2] = {};
+
+     uint32_t mMsaaNumQualityLevels[METAL_MAX_MULTISAMPLE_SAMPLE_COUNT];
+
 diff --git a/include/fast/backends/gfx_sdl.h b/include/fast/backends/gfx_sdl.h
 index 1f03cb63..27d6a9b6 100644
 --- a/include/fast/backends/gfx_sdl.h
@@ -92,6 +121,18 @@ index 1f03cb63..27d6a9b6 100644
 +#endif
  };
  } // namespace Fast
+diff --git a/include/libultraship/bridge/windowbridge.h b/include/libultraship/bridge/windowbridge.h
+index 623f16d3..5be84e59 100644
+--- a/include/libultraship/bridge/windowbridge.h
++++ b/include/libultraship/bridge/windowbridge.h
+@@ -7,6 +7,7 @@ extern "C" {
+ #endif
+
+ bool WindowIsRunning();
++void WindowWaitForFrameReady();
+ uint32_t WindowGetWidth();
+ uint32_t WindowGetHeight();
+ float WindowGetAspectRatio();
 diff --git a/include/ship/audio/Audio.h b/include/ship/audio/Audio.h
 index 3190664c..a842991c 100644
 --- a/include/ship/audio/Audio.h
@@ -101,7 +142,7 @@ index 3190664c..a842991c 100644
      std::shared_ptr<std::vector<AudioBackend>> GetAvailableAudioBackends();
      void SetCurrentAudioBackend(AudioBackend backend);
 +    void SetPaused(bool paused);
- 
+
    protected:
      void InitAudioPlayer();
 diff --git a/include/ship/audio/AudioPlayer.h b/include/ship/audio/AudioPlayer.h
@@ -114,9 +155,9 @@ index 1d8b1c47..40b05b40 100644
      virtual void Play(const uint8_t* buf, size_t len) = 0;
 +    virtual void SetPaused(bool) {
 +    }
- 
+
      bool IsInitialized();
- 
+
 diff --git a/include/ship/audio/SDLAudioPlayer.h b/include/ship/audio/SDLAudioPlayer.h
 index fb82faf9..9998c82f 100644
 --- a/include/ship/audio/SDLAudioPlayer.h
@@ -126,22 +167,22 @@ index fb82faf9..9998c82f 100644
  #include "AudioPlayer.h"
 +#include <atomic>
  #include <SDL2/SDL.h>
- 
+
  namespace Ship {
 @@ -9,14 +10,16 @@ class SDLAudioPlayer final : public AudioPlayer {
      }
      ~SDLAudioPlayer();
- 
+
 -    int Buffered();
 -    void Play(const uint8_t* buf, size_t len);
 +    int Buffered() override;
 +    void Play(const uint8_t* buf, size_t len) override;
 +    void SetPaused(bool paused) override;
- 
+
    protected:
 -    bool DoInit();
 +    bool DoInit() override;
- 
+
    private:
      SDL_AudioDeviceID mDevice;
      int32_t mNumChannels = 2;
@@ -154,7 +195,7 @@ index 9943170d..6c4cba83 100644
 +++ b/src/fast/Fast3dWindow.cpp
 @@ -76,6 +76,10 @@ void Fast3dWindow::Init() {
      int32_t posX, posY;
- 
+
      isFullscreen = Ship::Context::GetInstance()->GetConfig()->GetBool("Window.Fullscreen.Enabled", false) || gameMode;
 +#ifdef __IOS__
 +    isFullscreen = false;
@@ -162,14 +203,101 @@ index 9943170d..6c4cba83 100644
 +#endif
      posX = Ship::Context::GetInstance()->GetConfig()->GetInt("Window.PositionX", 100);
      posY = Ship::Context::GetInstance()->GetConfig()->GetInt("Window.PositionY", 100);
- 
+
+diff --git a/src/fast/backends/gfx_metal.cpp b/src/fast/backends/gfx_metal.cpp
+index ad7cc49d..11e3d531 100644
+--- a/src/fast/backends/gfx_metal.cpp
++++ b/src/fast/backends/gfx_metal.cpp
+@@ -43,6 +43,18 @@
+ // MARK: - Helpers
+ namespace Fast {
+
++GfxRenderingAPIMetal::~GfxRenderingAPIMetal() {
++    for (auto& depthTestStates : mDepthStencilStates) {
++        for (auto& depthMaskStates : depthTestStates) {
++            for (MTL::DepthStencilState* state : depthMaskStates) {
++                if (state != nullptr) {
++                    state->release();
++                }
++            }
++        }
++    }
++}
++
+ static MTL::SamplerAddressMode gfx_cm_to_metal(uint32_t val) {
+     switch (val) {
+         case G_TX_NOMIRROR | G_TX_CLAMP:
+@@ -418,20 +430,23 @@ void GfxRenderingAPIMetal::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, si
+     auto& current_framebuffer = mFramebuffers[mCurrentFramebuffer];
+
+     if (current_framebuffer.mLastDepthTest != mCurrentDepthTest ||
+-        current_framebuffer.mLastDepthMask != mCurrentDepthMask) {
++        current_framebuffer.mLastDepthMask != mCurrentDepthMask ||
++        current_framebuffer.mLastZmodeDecal != mCurrentZmodeDecal) {
+         current_framebuffer.mLastDepthTest = mCurrentDepthTest;
+         current_framebuffer.mLastDepthMask = mCurrentDepthMask;
+
+-        MTL::DepthStencilDescriptor* depth_descriptor = MTL::DepthStencilDescriptor::alloc()->init();
+-        depth_descriptor->setDepthWriteEnabled(mCurrentDepthMask);
+-        depth_descriptor->setDepthCompareFunction(
+-            mCurrentDepthTest ? (mCurrentZmodeDecal ? MTL::CompareFunctionLessEqual : MTL::CompareFunctionLess)
+-                              : MTL::CompareFunctionAlways);
+-
+-        MTL::DepthStencilState* depth_stencil_state = mDevice->newDepthStencilState(depth_descriptor);
++        MTL::DepthStencilState*& depth_stencil_state =
++            mDepthStencilStates[mCurrentDepthTest][mCurrentDepthMask][mCurrentZmodeDecal];
++        if (depth_stencil_state == nullptr) {
++            MTL::DepthStencilDescriptor* depth_descriptor = MTL::DepthStencilDescriptor::alloc()->init();
++            depth_descriptor->setDepthWriteEnabled(mCurrentDepthMask);
++            depth_descriptor->setDepthCompareFunction(
++                mCurrentDepthTest ? (mCurrentZmodeDecal ? MTL::CompareFunctionLessEqual : MTL::CompareFunctionLess)
++                                  : MTL::CompareFunctionAlways);
++            depth_stencil_state = mDevice->newDepthStencilState(depth_descriptor);
++            depth_descriptor->release();
++        }
+         current_framebuffer.mCommandEncoder->setDepthStencilState(depth_stencil_state);
+-
+-        depth_descriptor->release();
+     }
+
+     if (current_framebuffer.mLastZmodeDecal != mCurrentZmodeDecal) {
+@@ -599,15 +614,17 @@ void GfxRenderingAPIMetal::SetupScreenFramebuffer(uint32_t width, uint32_t heigh
+     mCurrentDrawable = nullptr;
+     mCurrentDrawable = mLayer->nextDrawable();
+
+-    bool msaa_enabled = Ship::Context::GetInstance()->GetConsoleVariables()->GetInteger("gMSAAValue", 1) > 1;
++    bool msaa_enabled = Ship::Context::GetInstance()->GetConsoleVariables()->GetInteger(CVAR_MSAA_VALUE, 1) > 1;
+
+     FramebufferMetal& fb = mFramebuffers[0];
+     TextureDataMetal& tex = mTextures[fb.mTextureId];
+
+     NS::AutoreleasePool* autorelease_pool = NS::AutoreleasePool::alloc()->init();
+
+-    if (tex.texture != nullptr)
+-        tex.texture->release();
++    // The screen texture is owned by CAMetalDrawable. Releasing this borrowed
++    // pointer here over-releases it; QuartzCore releases it again when the
++    // drawable is retired, which crashes when iOS backgrounds the app.
++    // Assign the next drawable's texture and let the drawable own its lifetime.
+
+     tex.texture = mCurrentDrawable->texture();
+
+@@ -713,7 +730,7 @@ void GfxRenderingAPIMetal::UpdateFramebufferParameters(int fb_id, uint32_t width
+
+             bool fb_msaa_enabled = (msaa_level > 1);
+             bool game_msaa_enabled =
+-                Ship::Context::GetInstance()->GetConsoleVariables()->GetInteger("gMSAAValue", 1) > 1;
++                Ship::Context::GetInstance()->GetConsoleVariables()->GetInteger(CVAR_MSAA_VALUE, 1) > 1;
+
+             if (fb_msaa_enabled) {
+                 render_pass_descriptor->colorAttachments()->object(0)->setTexture(tex.msaaTexture);
 diff --git a/src/fast/backends/gfx_sdl2.cpp b/src/fast/backends/gfx_sdl2.cpp
 index eb5df8b2..5a2b85a7 100644
 --- a/src/fast/backends/gfx_sdl2.cpp
 +++ b/src/fast/backends/gfx_sdl2.cpp
 @@ -9,6 +9,11 @@
  #endif
- 
+
  #include "ship/Context.h"
 +#ifdef __IOS__
 +#include "ship/audio/Audio.h"
@@ -191,7 +319,7 @@ index eb5df8b2..5a2b85a7 100644
  #define GL_GLEXT_PROTOTYPES 1
 @@ -45,6 +52,25 @@ LONG_PTR SDL_WndProc;
  #endif
- 
+
  namespace Fast {
 +#ifdef __IOS__
 +static void SaveIOSConfiguration() {
@@ -217,7 +345,7 @@ index eb5df8b2..5a2b85a7 100644
      SDL_SCANCODE_ESCAPE,
 @@ -207,6 +233,16 @@ GfxWindowBackendSDL2::~GfxWindowBackendSDL2() {
  }
- 
+
  void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {
 +#ifdef __IOS__
 +    // UIKit owns the full-screen drawable. Desktop display-mode switching can
@@ -235,7 +363,7 @@ index eb5df8b2..5a2b85a7 100644
 @@ -227,7 +263,7 @@ void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {
          }
      }
- 
+
 -#if defined(__APPLE__)
 +#if defined(__APPLE__) && !defined(__IOS__)
      // Implement fullscreening with native macOS APIs
@@ -243,7 +371,7 @@ index eb5df8b2..5a2b85a7 100644
          toggleNativeMacOSFullscreen(mWnd);
 @@ -505,7 +541,7 @@ void GfxWindowBackendSDL2::SetMouseCallbacks(bool (*onMouseButtonDown)(int btn),
  }
- 
+
  void GfxWindowBackendSDL2::GetDimensions(uint32_t* width, uint32_t* height, int32_t* posX, int32_t* posY) {
 -#ifdef __APPLE__
 +#if defined(__APPLE__) && !defined(__IOS__)
@@ -301,7 +429,7 @@ index eb5df8b2..5a2b85a7 100644
              break;
 @@ -621,7 +689,7 @@ void GfxWindowBackendSDL2::HandleEvents() {
      }
- 
+
      // resync fullscreen state
 -#ifdef __APPLE__
 +#if defined(__APPLE__) && !defined(__IOS__)
@@ -310,7 +438,7 @@ index eb5df8b2..5a2b85a7 100644
          mFullScreen = nextFullscreenState;
 @@ -633,7 +701,11 @@ void GfxWindowBackendSDL2::HandleEvents() {
  }
- 
+
  bool GfxWindowBackendSDL2::IsFrameReady() {
 +#ifdef __IOS__
 +    return !mIsBackgrounded;
@@ -318,8 +446,38 @@ index eb5df8b2..5a2b85a7 100644
      return true;
 +#endif
  }
- 
+
  static uint64_t qpc_to_100ns(uint64_t qpc) {
+diff --git a/src/libultraship/bridge/windowbridge.cpp b/src/libultraship/bridge/windowbridge.cpp
+index bfa5e7ea..1e3ba376 100644
+--- a/src/libultraship/bridge/windowbridge.cpp
++++ b/src/libultraship/bridge/windowbridge.cpp
+@@ -2,6 +2,9 @@
+ #include "ship/window/Window.h"
+ #include "ship/Context.h"
+
++#include <chrono>
++#include <thread>
++
+ extern "C" {
+
+ uint32_t WindowGetWidth() {
+@@ -20,6 +23,15 @@ bool WindowIsRunning() {
+     return Ship::Context::GetInstance()->GetWindow()->IsRunning();
+ }
+
++void WindowWaitForFrameReady() {
++    auto window = Ship::Context::GetInstance()->GetWindow();
++
++    while (window->IsRunning() && !window->IsFrameReady()) {
++        window->HandleEvents();
++        std::this_thread::sleep_for(std::chrono::milliseconds(16));
++    }
++}
++
+ int32_t WindowGetPosX() {
+     return Ship::Context::GetInstance()->GetWindow()->GetPosX();
+ }
 diff --git a/src/libultraship/controller/controldevice/controller/mapping/ControllerDefaultMappings.cpp b/src/libultraship/controller/controldevice/controller/mapping/ControllerDefaultMappings.cpp
 index c431c346..1bce6004 100644
 --- a/src/libultraship/controller/controldevice/controller/mapping/ControllerDefaultMappings.cpp
@@ -340,7 +498,7 @@ index 0c36b4f4..7778d370 100644
 @@ -398,11 +398,6 @@ std::string Context::GetAppBundlePath() {
      }
  #endif
- 
+
 -#ifdef __IOS__
 -    const char* home = getenv("HOME");
 -    return std::string(home) + "/Documents";
@@ -356,7 +514,7 @@ index 6efce2c2..b715a25f 100644
 @@ -62,4 +62,10 @@ std::shared_ptr<std::vector<AudioBackend>> Audio::GetAvailableAudioBackends() {
      return mAvailableAudioBackends;
  }
- 
+
 +void Audio::SetPaused(bool paused) {
 +    if (mAudioPlayer != nullptr) {
 +        mAudioPlayer->SetPaused(paused);
@@ -370,7 +528,7 @@ index c74c8840..081e678e 100644
 +++ b/src/ship/audio/SDLAudioPlayer.cpp
 @@ -9,6 +9,9 @@ SDLAudioPlayer::~SDLAudioPlayer() {
  }
- 
+
  bool SDLAudioPlayer::DoInit() {
 +#ifdef __IOS__
 +    SDL_SetHint(SDL_HINT_AUDIO_CATEGORY, "playback");
@@ -380,7 +538,7 @@ index c74c8840..081e678e 100644
          return false;
 @@ -35,9 +38,20 @@ int SDLAudioPlayer::Buffered() {
  }
- 
+
  void SDLAudioPlayer::Play(const uint8_t* buf, size_t len) {
 -    if (Buffered() < 6000) {
 +    if (!mPaused && Buffered() < 6000) {
@@ -410,17 +568,17 @@ index 34391d1b..8d73c9cb 100644
 +#include "ship/port/mobile/MobileImpl.h"
  #include <SDL2/SDL.h>
 -#include "ship/public/bridge/consolevariablebridge.h"
- 
+
  #include <imgui_internal.h>
- 
+
 diff --git a/src/ship/window/gui/Gui.cpp b/src/ship/window/gui/Gui.cpp
-index 17f0c2b0..0e1d2496 100644
+index 17f0c2b0..9c39077a 100644
 --- a/src/ship/window/gui/Gui.cpp
 +++ b/src/ship/window/gui/Gui.cpp
 @@ -7,6 +7,10 @@
  #include <string>
  #include <vector>
- 
+
 +#ifdef __IOS__
 +extern "C" void MaskPad_SetTouchControlsMenuVisible(int visible);
 +#endif
@@ -430,17 +588,17 @@ index 17f0c2b0..0e1d2496 100644
  #include "ship/config/ConsoleVariable.h"
 @@ -31,7 +35,7 @@
  #endif
- 
+
  #if defined(__ANDROID__) || defined(__IOS__)
 -#include "port/mobile/MobileImpl.h"
 +#include "ship/port/mobile/MobileImpl.h"
  #endif
- 
+
  #ifdef ENABLE_OPENGL
 @@ -583,6 +587,10 @@ void Gui::DrawMenu() {
          GetMenu()->Draw();
      }
- 
+
 +#ifdef __IOS__
 +    MaskPad_SetTouchControlsMenuVisible(GetMenuOrMenubarVisible());
 +#endif
@@ -448,20 +606,3 @@ index 17f0c2b0..0e1d2496 100644
      for (auto& windowIter : mGuiWindows) {
          windowIter.second->Update();
          windowIter.second->Draw();
-diff --git a/src/fast/backends/gfx_metal.cpp b/src/fast/backends/gfx_metal.cpp
-index ad7cc49d..250bc1ee 100644
---- a/src/fast/backends/gfx_metal.cpp
-+++ b/src/fast/backends/gfx_metal.cpp
-@@ -606,8 +606,10 @@ void GfxRenderingAPIMetal::SetupScreenFramebuffer(uint32_t width, uint32_t heigh
- 
-     NS::AutoreleasePool* autorelease_pool = NS::AutoreleasePool::alloc()->init();
- 
--    if (tex.texture != nullptr)
--        tex.texture->release();
-+    // The screen texture is owned by CAMetalDrawable. Releasing this borrowed
-+    // pointer here over-releases it; QuartzCore releases it again when the
-+    // drawable is retired, which crashes when iOS backgrounds the app.
-+    // Assign the next drawable's texture and let the drawable own its lifetime.
- 
-     tex.texture = mCurrentDrawable->texture();
- 

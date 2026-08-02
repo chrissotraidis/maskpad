@@ -1,23 +1,27 @@
 # README captures
 
-MaskPad's README follows HarkinianPad's visual sequence:
+MaskPad's README uses a physical-iPad gameplay sequence:
 
-1. one wide gameplay hero immediately below the badges;
-2. one touch-gameplay capture with the complete overlay visible; and
-3. one current settings or touch-layout-editor capture.
+1. one dynamic gameplay hero immediately below the badges; and
+2. a four-image gallery covering exploration, characters, Clock Town, and
+   dialogue with the touch overlay visible.
 
 The maintainer approved the current captures for publication. They were taken
-from the MaskPad iPad Pro 11-inch (M4), iOS 18.5 Simulator build with ignored,
-user-owned game data. They contain no local paths, notifications, filenames,
-debug overlays, ROMs, or generated archives.
+from the signed MaskPad build on a physical 12.9-inch iPad Pro
+(6th generation) running iPadOS 26.5.2 with ignored, user-owned game data.
+They contain no local paths, notifications, filenames, debug overlays, ROMs,
+or generated archives. The checked-in JPEGs are 1600 pixels wide to keep the
+README responsive without committing the full-size originals.
 
 ## Published files
 
 | Slot | File | Evidence |
 |---|---|---|
-| Hero | `maskpad-gameplay.jpg` | Gameplay rendering and the complete iPad touch controller |
-| Touch | `maskpad-controls.jpg` | Gameplay with stick, D-pad, face buttons, shoulders, Z, and persistent menu visible |
-| Settings | `maskpad-settings.jpg` | Touch Controls, Legacy Fixed Touch Controls, and Customize Touch Layout in the live Controls page |
+| Hero | `maskpad-hero-ipad.jpg` | Dynamic sword combat, Metal rendering, and transparent controls |
+| Exploration | `maskpad-swamp-ipad.jpg` | Complete stick, D-pad, face, shoulder, Z, and persistent-menu layout |
+| Character scene | `maskpad-clock-town-story-ipad.jpg` | Touch targets preserving the original scene and HUD |
+| Clock Town | `maskpad-clock-town-ipad.jpg` | Busy outdoor gameplay with the complete controller visible |
+| Dialogue | `maskpad-stock-pot-inn-ipad.jpg` | Stock Pot Inn dialogue and touch input in the signed iPad build |
 
 Before replacing any capture:
 

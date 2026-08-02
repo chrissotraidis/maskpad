@@ -4,7 +4,7 @@ index e3c1ac7b5..c88e3fb7b 100644
 +++ b/CMakeLists.txt
 @@ -1,6 +1,14 @@
  cmake_minimum_required(VERSION 3.26.0 FATAL_ERROR)
- 
+
 -set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
 +if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 +    set(CMAKE_SYSTEM_VERSION "${DEPLOYMENT_TARGET}" CACHE STRING "" FORCE)
@@ -16,12 +16,12 @@ index e3c1ac7b5..c88e3fb7b 100644
 +    set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
 +endif()
  set(CMAKE_CXX_STANDARD 20 CACHE STRING "The C++ standard to use")
- 
+
  set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 @@ -73,6 +81,11 @@ set(GBI_UCODE F3DEX_GBI_2)
- 
+
  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
- 
+
 +# Dependencies that are not provided by the iOS SDK.
 +if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 +    include(CMake/ios.cmake)
@@ -29,7 +29,7 @@ index e3c1ac7b5..c88e3fb7b 100644
 +
  # Enable MPQ and OTR support
  set(INCLUDE_MPQ_SUPPORT ON)
- 
+
 @@ -162,6 +175,12 @@ add_subdirectory(libultraship ${CMAKE_BINARY_DIR}/libultraship)
  target_compile_definitions(libultraship PUBLIC INCLUDE_MPQ_SUPPORT)
  add_subdirectory(ZAPDTR/ZAPD ${CMAKE_BINARY_DIR}/ZAPD)
@@ -41,10 +41,10 @@ index e3c1ac7b5..c88e3fb7b 100644
 +    )
 +endif()
  add_subdirectory(mm)
- 
+
  set_property(TARGET 2ship PROPERTY APPIMAGE_DESKTOP_FILE_TERMINAL YES)
 diff --git a/mm/2s2h/BenGui/BenMenu.cpp b/mm/2s2h/BenGui/BenMenu.cpp
-index 1a5ad515b..e8e044b6d 100644
+index 1a5ad515b..2f2420808 100644
 --- a/mm/2s2h/BenGui/BenMenu.cpp
 +++ b/mm/2s2h/BenGui/BenMenu.cpp
 @@ -17,6 +17,9 @@
@@ -54,11 +54,11 @@ index 1a5ad515b..e8e044b6d 100644
 +#ifdef __IOS__
 +#include "ios/MaskPadTouchControls.h"
 +#endif
- 
+
  extern "C" {
  #include "z64.h"
-@@ -576,6 +579,44 @@ void BenMenu::AddSettings() {
- 
+@@ -576,6 +579,71 @@ void BenMenu::AddSettings() {
+
      path.sidebarName = "Controls";
      AddSidebarEntry("Settings", "Controls", 1);
 +#ifdef __IOS__
@@ -71,6 +71,33 @@ index 1a5ad515b..e8e044b6d 100644
 +        .Options(CheckboxOptions()
 +                     .DefaultValue(true)
 +                     .Tooltip("Shows the touch controller. Disable it when using a physical controller."));
++    AddWidget(path, "Touch Control Transparency", WIDGET_CVAR_CHECKBOX)
++        .CVar("gSettings.MaskPad.TouchControlTransparency")
++        .Callback([](WidgetInfo& info) {
++            const bool enabled =
++                CVarGetInteger("gSettings.MaskPad.TouchControlTransparency", 0);
++            MaskPad_SetTouchControlsOpacity(
++                enabled ? CVarGetFloat("gSettings.MaskPad.TouchControlOpacity", 0.5f) : 1.0f);
++        })
++        .Options(CheckboxOptions()
++                     .DefaultValue(false)
++                     .Tooltip("Allows the touch controls to use the opacity selected below. Input areas are "
++                              "unchanged."));
++    AddWidget(path, "Touch Control Opacity", WIDGET_CVAR_SLIDER_FLOAT)
++        .CVar("gSettings.MaskPad.TouchControlOpacity")
++        .PreFunc([](WidgetInfo& info) {
++            info.isHidden = !CVarGetInteger("gSettings.MaskPad.TouchControlTransparency", 0);
++        })
++        .Callback([](WidgetInfo& info) {
++            MaskPad_SetTouchControlsOpacity(
++                CVarGetFloat("gSettings.MaskPad.TouchControlOpacity", 0.5f));
++        })
++        .Options(FloatSliderOptions()
++                     .IsPercentage()
++                     .Min(0.25f)
++                     .Max(1.0f)
++                     .DefaultValue(0.5f)
++                     .Tooltip("Sets touch-control opacity. Lower values show more of the game beneath them."));
 +    AddWidget(path, "Legacy Fixed Touch Controls", WIDGET_CVAR_CHECKBOX)
 +        .CVar("gSettings.MaskPad.LegacyFixedTouchControls")
 +        .Callback([](WidgetInfo& info) {
@@ -103,7 +130,7 @@ index 1a5ad515b..e8e044b6d 100644
          .CVar("gWindows.BenInputEditor")
          .WindowName("2S2H Input Editor")
 diff --git a/mm/2s2h/BenPort.cpp b/mm/2s2h/BenPort.cpp
-index c9a5ad156..87460b1d9 100644
+index c9a5ad156..24ca83cbf 100644
 --- a/mm/2s2h/BenPort.cpp
 +++ b/mm/2s2h/BenPort.cpp
 @@ -64,6 +64,11 @@ CrowdControl* CrowdControl::Instance;
@@ -115,14 +142,13 @@ index c9a5ad156..87460b1d9 100644
 +#include <cstring>
 +#include "ios/MaskPadTouchControls.h"
 +#endif
- 
+
  // Resource Types/Factories
  #include <ship/resource/type/Blob.h>
-@@ -659,6 +664,14 @@ void CheckAndCreateModFolder() {
- }
- 
+@@ -660,6 +665,14 @@ void CheckAndCreateModFolder() {
+
  extern "C" void InitOTR() {
-+
+
 +#if defined(__IOS__) && defined(MASKPAD_UI_TEST_HARNESS)
 +    const char* uiTestMode = std::getenv("MASKPAD_UI_TEST_MODE");
 +    if (uiTestMode != nullptr && std::strcmp(uiTestMode, "gameplay") != 0) {
@@ -130,13 +156,14 @@ index c9a5ad156..87460b1d9 100644
 +        return;
 +    }
 +#endif
- 
++
  #ifdef __SWITCH__
      Ship::Switch::Init(Ship::PreInitPhase);
-@@ -694,10 +705,20 @@ extern "C" void InitOTR() {
+ #elif defined(__WIIU__)
+@@ -694,10 +707,20 @@ extern "C" void InitOTR() {
              exit(1);
          }
- 
+
 -        if (Extractor::ShowYesNoBox("No O2R File", "No O2R files found. Generate one now?") == IDYES) {
 +        bool shouldGenerate =
 +#ifdef __IOS__
@@ -155,15 +182,21 @@ index c9a5ad156..87460b1d9 100644
                  exit(1);
              }
              extract.CallZapd(installPath, Ship::Context::GetAppDirectoryPath(appShortName));
-@@ -708,6 +729,19 @@ extern "C" void InitOTR() {
+@@ -708,6 +731,25 @@ extern "C" void InitOTR() {
  #endif
- 
+
      OTRGlobals::Instance = new OTRGlobals();
 +#ifdef __IOS__
 +    CVarSetInteger(CVAR_IMGUI_CONTROLLER_NAV, 1);
 +    CVarRegisterInteger("gSettings.MaskPad.TouchControls", 1);
 +    MaskPad_SetTouchControlsEnabled(
 +        CVarGetInteger("gSettings.MaskPad.TouchControls", 1));
++    CVarRegisterInteger("gSettings.MaskPad.TouchControlTransparency", 0);
++    CVarRegisterFloat("gSettings.MaskPad.TouchControlOpacity", 0.5f);
++    MaskPad_SetTouchControlsOpacity(
++        CVarGetInteger("gSettings.MaskPad.TouchControlTransparency", 0)
++            ? CVarGetFloat("gSettings.MaskPad.TouchControlOpacity", 0.5f)
++            : 1.0f);
 +    CVarRegisterInteger("gSettings.MaskPad.LegacyFixedTouchControls", 0);
 +    const int modernTouchControls =
 +        !CVarGetInteger("gSettings.MaskPad.LegacyFixedTouchControls", 0);
@@ -188,7 +221,7 @@ index 8cd632cef..927387edd 100644
 +#include <ship/window/gui/Gui.h>
  #include "2s2h/GameInteractor/GameInteractor.h"
  #include "2s2h/ShipInit.hpp"
- 
+
 diff --git a/mm/2s2h/Enhancements/Cutscenes/MiscInteractions/SkipHungryGoronDialogue.cpp b/mm/2s2h/Enhancements/Cutscenes/MiscInteractions/SkipHungryGoronDialogue.cpp
 index 859b31b6d..7ea4acb69 100644
 --- a/mm/2s2h/Enhancements/Cutscenes/MiscInteractions/SkipHungryGoronDialogue.cpp
@@ -198,7 +231,7 @@ index 859b31b6d..7ea4acb69 100644
  #include "2s2h/GameInteractor/GameInteractor.h"
  #include "2s2h/ShipInit.hpp"
 +#include "functions.h"
- 
+
  #define CVAR_NAME "gEnhancements.Cutscenes.SkipMiscInteractions"
  #define CVAR CVarGetInteger(CVAR_NAME, 0)
 diff --git a/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.cpp b/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.cpp
@@ -206,7 +239,7 @@ index e7f442712..742c5b089 100644
 --- a/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.cpp
 +++ b/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.cpp
 @@ -7,8 +7,11 @@
- 
+
  #include "FrameInterpolation.h"
  #include "2s2h/BenPort.h"
 +
@@ -214,7 +247,7 @@ index e7f442712..742c5b089 100644
  #include <sys_matrix.h>
  #include <z64skin_matrix.h>
 +}
- 
+
  /*
  Frame interpolation.
 diff --git a/mm/2s2h/Enhancements/Masks/EquipMaskOtherForms.cpp b/mm/2s2h/Enhancements/Masks/EquipMaskOtherForms.cpp
@@ -224,14 +257,14 @@ index e7d0dd9ba..ad3629b00 100644
 @@ -5,6 +5,10 @@
  #define CVAR_NAME "gEnhancements.Masks.3DSMaskEquip"
  #define CVAR CVarGetInteger(CVAR_NAME, 0)
- 
+
 +extern "C" {
 +extern PlayState* gPlayState;
 +}
 +
  static PlayerMask sPendingMask = PLAYER_MASK_NONE;
  static HOOK_ID sPlayerUpdateHookId = 0;
- 
+
 diff --git a/mm/2s2h/Enhancements/Masks/EquipWhileSwimming.cpp b/mm/2s2h/Enhancements/Masks/EquipWhileSwimming.cpp
 index 20ea8a527..c4140c502 100644
 --- a/mm/2s2h/Enhancements/Masks/EquipWhileSwimming.cpp
@@ -239,7 +272,7 @@ index 20ea8a527..c4140c502 100644
 @@ -5,6 +5,10 @@
  #define CVAR_NAME "gEnhancements.Masks.EquipWhileSwimming"
  #define CVAR CVarGetInteger(CVAR_NAME, 0)
- 
+
 +extern "C" {
 +extern PlayState* gPlayState;
 +}
@@ -256,7 +289,7 @@ index 7478792ca..6b51b4f01 100644
 +#include "2s2h/GameInteractor/GameInteractor.h"
  #include "2s2h/ShipInit.hpp"
  #include "SavingEnhancements.h"
- 
+
 diff --git a/mm/2s2h/Enhancements/Timesavers/AutoBankDeposit.cpp b/mm/2s2h/Enhancements/Timesavers/AutoBankDeposit.cpp
 index 601dd4194..0fb3e4b25 100644
 --- a/mm/2s2h/Enhancements/Timesavers/AutoBankDeposit.cpp
@@ -270,7 +303,7 @@ index 601dd4194..0fb3e4b25 100644
 +extern "C" {
 +#include "functions.h"
 +}
- 
+
  #define CVAR_NAME "gEnhancements.Timesavers.AutoBankDeposit"
  #define CVAR CVarGetInteger(CVAR_NAME, 0)
 diff --git a/mm/2s2h/Enhancements/Trackers/ItemTracker/ItemTracker.h b/mm/2s2h/Enhancements/Trackers/ItemTracker/ItemTracker.h
@@ -282,13 +315,13 @@ index dd495de82..c4ea980eb 100644
  #include <vector>
  #include <imgui.h>
  #include "ship/window/gui/GuiWindow.h"
- 
+
 +extern "C" {
 +#include "ultra64.h"
 +}
 +
  #define ITEM_TEXTURE_SIZE 46.0f
- 
+
  typedef enum {
 diff --git a/mm/2s2h/Extractor/Extract.cpp b/mm/2s2h/Extractor/Extract.cpp
 index 707dfec0f..8425bcbac 100644
@@ -296,13 +329,13 @@ index 707dfec0f..8425bcbac 100644
 +++ b/mm/2s2h/Extractor/Extract.cpp
 @@ -424,6 +424,9 @@ bool Extractor::Run(std::string searchPath, RomSearchMode searchMode) {
      FilterRoms(roms, searchMode);
- 
+
      if (roms.empty()) {
 +#ifdef __IOS__
 +        return false;
 +#else
          int ret = ShowYesNoBox("No roms found", "No roms found. Look for one?");
- 
+
          switch (ret) {
 @@ -439,8 +442,10 @@ bool Extractor::Run(std::string searchPath, RomSearchMode searchMode) {
                  UNREACHABLE;
@@ -310,7 +343,7 @@ index 707dfec0f..8425bcbac 100644
          }
 +#endif
      }
- 
+
 +#ifndef __IOS__
      if (roms.size() > 1) {
          int ret = ShowYesNoBox("Multiple ROMs Found", "Multiple ROM files were detected. Select one manually?");
@@ -320,13 +353,13 @@ index 707dfec0f..8425bcbac 100644
          }
      }
 +#endif
- 
+
      for (const auto& rom : roms) {
          SetRomInfo(rom);
 @@ -466,7 +472,12 @@ bool Extractor::Run(std::string searchPath, RomSearchMode searchMode) {
          inFile.close();
          BitConverter::RomToBigEndian(mRomData.get(), mCurRomSize);
- 
+
 -        int option = ShowRomPickBox(GetRomVerCrc());
 +        int option =
 +#ifdef __IOS__
@@ -334,7 +367,7 @@ index 707dfec0f..8425bcbac 100644
 +#else
 +            ShowRomPickBox(GetRomVerCrc());
 +#endif
- 
+
          if (option == (int)ButtonId::YES) {
              if (!ValidateRom(true)) {
 @@ -597,7 +608,7 @@ bool Extractor::CallZapd(std::string installPath, std::string exportdir) {
@@ -363,7 +396,7 @@ index 4506f6140..ba7135477 100644
  #include "2s2h/ShipInit.hpp"
 +#include <libultraship/bridge/consolevariablebridge.h>
  #include <cassert>
- 
+
  // Copied from z_player.c, we could instead move this to a header file, idk
 diff --git a/mm/2s2h/Rando/MiscBehavior/ClockShuffle.h b/mm/2s2h/Rando/MiscBehavior/ClockShuffle.h
 index ab79f2102..8bc7da3e8 100644
@@ -372,17 +405,17 @@ index ab79f2102..8bc7da3e8 100644
 @@ -1,8 +1,13 @@
  #ifndef RANDO_CLOCK_SHUFFLE_H
  #define RANDO_CLOCK_SHUFFLE_H
- 
+
 +#include <string>
  #include "Rando/Types.h"
- 
+
 +extern "C" {
 +#include "ultra64.h"
 +}
 +
  namespace Rando {
  namespace ClockItems {
- 
+
 diff --git a/mm/2s2h/Rando/Rando.h b/mm/2s2h/Rando/Rando.h
 index 03b542173..e9a8665db 100644
 --- a/mm/2s2h/Rando/Rando.h
@@ -392,7 +425,7 @@ index 03b542173..e9a8665db 100644
  #include "Types.h"
  #include "variables.h"
 +#include <nlohmann/json.hpp>
- 
+
  #define IS_RANDO (gSaveContext.save.shipSaveInfo.saveType == SAVETYPE_RANDO)
  #define RANDO_SAVE_CHECKS gSaveContext.save.shipSaveInfo.rando.randoSaveChecks
 diff --git a/mm/2s2h/Rando/Spoiler/Apply.cpp b/mm/2s2h/Rando/Spoiler/Apply.cpp
@@ -405,7 +438,7 @@ index 39fae9c14..012a342db 100644
  #include <libultraship/bridge/consolevariablebridge.h>
 +#include <spdlog/spdlog.h>
  #include "ShipUtils.h"
- 
+
  extern "C" {
 diff --git a/mm/2s2h/resource/importer/CutsceneFactory.cpp b/mm/2s2h/resource/importer/CutsceneFactory.cpp
 index 59035ee55..49020032b 100644
@@ -413,29 +446,29 @@ index 59035ee55..49020032b 100644
 +++ b/mm/2s2h/resource/importer/CutsceneFactory.cpp
 @@ -2,6 +2,7 @@
  #include "2s2h/resource/type/Cutscene.h"
- 
+
  extern "C" {
 +#include "z64.h"
  #include "z64cutscene.h"
  }
- 
+
 diff --git a/mm/CMakeLists.txt b/mm/CMakeLists.txt
-index 9f0834a7a..abfcac469 100644
+index 9f0834a7a..40dd5e33b 100644
 --- a/mm/CMakeLists.txt
 +++ b/mm/CMakeLists.txt
 @@ -1,11 +1,15 @@
  cmake_minimum_required(VERSION 3.26.0 FATAL_ERROR)
- 
+
 -set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
 +if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 +    set(CMAKE_SYSTEM_VERSION "${DEPLOYMENT_TARGET}" CACHE STRING "" FORCE)
 +else()
 +    set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
 +endif()
- 
+
  project(2ship LANGUAGES C CXX)
  set(CMAKE_CXX_STANDARD 20 CACHE STRING "The C++ standard to use")
- 
+
 -if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 +if (CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS")
      enable_language(OBJCXX)
@@ -443,7 +476,7 @@ index 9f0834a7a..abfcac469 100644
      set(CMAKE_OBJCXX_FLAGS "${CMAKE_OBJCXX_FLAGS} -fobjc-arc")
 @@ -96,6 +100,9 @@ source_group("include" FILES ${Header_Files__include})
  # }}}
- 
+
  file(GLOB_RECURSE ship__ RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "2s2h/*.c" "2s2h/*.cpp" "2s2h/*.h" "2s2h/*.hpp")
 +if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 +    list(APPEND ship__ ${CMAKE_CURRENT_SOURCE_DIR}/ios/MaskPadTouchControls.mm)
@@ -458,11 +491,11 @@ index 9f0834a7a..abfcac469 100644
 -
  # src (decomp) {{{
  file(GLOB_RECURSE src__ RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "src/*.c" "src/*.h")
- 
+
 @@ -178,6 +184,24 @@ set(ALL_FILES
  ################################################################################
  add_executable(${PROJECT_NAME} ${ALL_FILES})
- 
+
 +if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 +    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/2ship.o2r")
 +        message(FATAL_ERROR
@@ -552,7 +585,7 @@ index 9f0834a7a..abfcac469 100644
  		"$<$<CONFIG:Debug>:"
 @@ -346,7 +422,7 @@ if(MSVC)
  endif()
- 
+
  if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
 -    if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 +    if (CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS")
@@ -572,7 +605,7 @@ index 9f0834a7a..abfcac469 100644
      "$<$<COMPILE_LANGUAGE:C>:${CMAKE_CURRENT_SOURCE_DIR}/include/variables.h>"
  )
 +endif()
- 
+
  ################################################################################
  # Pre build events
 @@ -573,6 +651,22 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "CafeOS")
@@ -599,18 +632,18 @@ index 9f0834a7a..abfcac469 100644
      find_package(SDL2)
      set(THREADS_PREFER_PTHREAD_FLAG ON)
 @@ -599,7 +693,7 @@ else()
- 
+
  endif()
- 
+
 -if(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin|NintendoSwitch|CafeOS")
 +if(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin|iOS|NintendoSwitch|CafeOS")
  INSTALL(TARGETS 2ship DESTINATION . COMPONENT 2s2h)
  endif()
- 
+
 @@ -608,15 +702,37 @@ INSTALL(FILES $<TARGET_PDB_FILE:2ship> DESTINATION ./debug COMPONENT 2s2h)
  INSTALL(FILES ${CMAKE_BINARY_DIR}/mm/2ship.o2r DESTINATION . COMPONENT 2s2h)
  endif()
- 
+
 -find_program(CURL NAMES curl DOC "Path to the curl program.  Used to download files.")
 -execute_process(COMMAND ${CURL} -sSfL https://raw.githubusercontent.com/gabomdq/SDL_GameControllerDB/master/gamecontrollerdb.txt -o ${CMAKE_BINARY_DIR}/gamecontrollerdb.txt OUTPUT_VARIABLE RESULT)
 +find_program(CURL NAMES curl DOC "Path to the curl program. Used to download files.")
@@ -637,7 +670,7 @@ index 9f0834a7a..abfcac469 100644
 +        message(FATAL_ERROR "Pinned controller mapping checksum mismatch")
 +    endif()
 +endif()
- 
+
  if("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
  configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/macosx/Info.plist.in ${CMAKE_BINARY_DIR}/macosx/Info.plist @ONLY)
  INSTALL(TARGETS 2ship DESTINATION ../MacOS COMPONENT 2s2h)
@@ -647,20 +680,39 @@ index 9f0834a7a..abfcac469 100644
 +elseif(NOT "${CMAKE_SYSTEM_NAME}" MATCHES "iOS|NintendoSwitch|CafeOS")
  INSTALL(FILES ${CMAKE_BINARY_DIR}/gamecontrollerdb.txt DESTINATION . COMPONENT 2s2h)
  endif()
- 
+
+diff --git a/mm/src/code/graph.c b/mm/src/code/graph.c
+index e8157c874..2922df1f8 100644
+--- a/mm/src/code/graph.c
++++ b/mm/src/code/graph.c
+@@ -428,6 +428,14 @@ void RunFrame() {
+
+ void Graph_ThreadEntry(void* arg0) {
+     while (WindowIsRunning()) {
++#ifdef __IOS__
++        // UIKit can leave the app inactive while system UI, such as the screenshot editor, is open.
++        // Rendering is suspended during that interval, so pause simulation as well instead of running unpaced.
++        WindowWaitForFrameReady();
++        if (!WindowIsRunning()) {
++            break;
++        }
++#endif
+         RunFrame();
+     }
+ }
 diff --git a/mm/src/code/main.c b/mm/src/code/main.c
 index b94cce0b5..16a8cfc1a 100644
 --- a/mm/src/code/main.c
 +++ b/mm/src/code/main.c
 @@ -49,11 +49,11 @@ size_t gSystemHeapSize = 0;
- 
+
  void InitOTR();
  void Heaps_Free(void);
 -#ifdef __GNUC__
 +#if defined(__GNUC__) && !defined(__IOS__)
  #define SDL_main main
  #endif
- 
+
 -void SDL_main(int argc, char** argv /* void* arg*/) {
 +int SDL_main(int argc, char** argv /* void* arg*/) {
      intptr_t fb;
@@ -673,23 +725,26 @@ index b94cce0b5..16a8cfc1a 100644
 +    return 0;
  }
 diff --git a/mm/src/code/z_parameter.c b/mm/src/code/z_parameter.c
-index 9972a1e00..b6fbaaea6 100644
+index 9972a1e00..b74ade986 100644
 --- a/mm/src/code/z_parameter.c
 +++ b/mm/src/code/z_parameter.c
-@@ -25,6 +25,9 @@
+@@ -25,6 +25,12 @@
  #include "2s2h/GameInteractor/GameInteractor.h"
  #include <libultraship/bridge/gfxbridge.h>
  #include <libultraship/bridge/consolevariablebridge.h>
 +#ifdef __IOS__
 +#include "ios/MaskPadTouchControls.h"
++#define MASKPAD_TOUCH_ALPHA(alpha) MaskPad_GetNativeHudTouchAlpha(alpha)
++#else
++#define MASKPAD_TOUCH_ALPHA(alpha) (alpha)
 +#endif
- 
+
  // 2S2H [Port] This was originally static but needs to be global so it can be accessed in z_kaleido_collect,
  // z_kaleido_debug, and z_kaleido_draw.
-@@ -5850,6 +5853,23 @@ void Interface_SetPerspectiveView(PlayState* play, s32 topY, s32 bottomY, s32 le
+@@ -5850,6 +5856,23 @@ void Interface_SetPerspectiveView(PlayState* play, s32 topY, s32 bottomY, s32 le
      }
      // #endregion
- 
+
 +#ifdef __IOS__
 +    float nativeHudX;
 +    float nativeHudY;
@@ -708,9 +763,9 @@ index 9972a1e00..b6fbaaea6 100644
 +#endif
 +
      View_SetViewport(&interfaceCtx->view, &interfaceCtx->viewport);
- 
+
      View_SetPerspective(&interfaceCtx->view, 60.0f, 10.0f, 60.0f);
-@@ -5890,6 +5910,51 @@ void Interface_DrawItemButtons(PlayState* play) {
+@@ -5890,6 +5913,51 @@ void Interface_DrawItemButtons(PlayState* play) {
      MessageContext* msgCtx = &play->msgCtx;
      s16 temp; // Used as both an alpha value and a button index
      s32 pad;
@@ -759,10 +814,10 @@ index 9972a1e00..b6fbaaea6 100644
 +        }
 +    }
 +#endif
- 
+
      OPEN_DISPS(play->state.gfxCtx);
- 
-@@ -5913,30 +5978,30 @@ void Interface_DrawItemButtons(PlayState* play) {
+
+@@ -5913,30 +5981,33 @@ void Interface_DrawItemButtons(PlayState* play) {
      // B Button Color & Texture
      HudEditor_SetActiveElement(HUD_EDITOR_ELEMENT_B);
      OVERLAY_DISP = Gfx_DrawTexRectIA8_DropShadowOverride(
@@ -771,10 +826,11 @@ index 9972a1e00..b6fbaaea6 100644
 -        sBCButtonScales[EQUIP_SLOT_B] * 2, sBCButtonScales[EQUIP_SLOT_B] * 2, 100, 255, 120, interfaceCtx->bAlpha,
 +        OVERLAY_DISP, gButtonBackgroundTex, 32, 32, buttonXPositions[EQUIP_SLOT_B],
 +        buttonYPositions[EQUIP_SLOT_B], buttonSizes[EQUIP_SLOT_B], buttonSizes[EQUIP_SLOT_B],
-+        buttonScales[EQUIP_SLOT_B] * 2, buttonScales[EQUIP_SLOT_B] * 2, 100, 255, 120, interfaceCtx->bAlpha,
++        buttonScales[EQUIP_SLOT_B] * 2, buttonScales[EQUIP_SLOT_B] * 2, 100, 255, 120,
++        MASKPAD_TOUCH_ALPHA(interfaceCtx->bAlpha),
          COSMETIC_ELEMENT_B_BUTTON);
      gDPPipeSync(OVERLAY_DISP++);
- 
+
      // C-Left Button Color & Texture
      HudEditor_SetActiveElement(HUD_EDITOR_ELEMENT_C_LEFT);
      OVERLAY_DISP = Gfx_DrawRect_DropShadowOverride(
@@ -783,7 +839,8 @@ index 9972a1e00..b6fbaaea6 100644
 -        sBCButtonScales[EQUIP_SLOT_C_LEFT] * 2, 255, 240, 0, interfaceCtx->cLeftAlpha, COSMETIC_ELEMENT_C_LEFT_BUTTON);
 +        OVERLAY_DISP, buttonXPositions[EQUIP_SLOT_C_LEFT], buttonYPositions[EQUIP_SLOT_C_LEFT],
 +        buttonSizes[EQUIP_SLOT_C_LEFT], buttonSizes[EQUIP_SLOT_C_LEFT], buttonScales[EQUIP_SLOT_C_LEFT] * 2,
-+        buttonScales[EQUIP_SLOT_C_LEFT] * 2, 255, 240, 0, interfaceCtx->cLeftAlpha, COSMETIC_ELEMENT_C_LEFT_BUTTON);
++        buttonScales[EQUIP_SLOT_C_LEFT] * 2, 255, 240, 0, MASKPAD_TOUCH_ALPHA(interfaceCtx->cLeftAlpha),
++        COSMETIC_ELEMENT_C_LEFT_BUTTON);
      // C-Down Button Color & Texture
      HudEditor_SetActiveElement(HUD_EDITOR_ELEMENT_C_DOWN);
      OVERLAY_DISP = Gfx_DrawRect_DropShadowOverride(
@@ -792,7 +849,8 @@ index 9972a1e00..b6fbaaea6 100644
 -        sBCButtonScales[EQUIP_SLOT_C_DOWN] * 2, 255, 240, 0, interfaceCtx->cDownAlpha, COSMETIC_ELEMENT_C_DOWN_BUTTON);
 +        OVERLAY_DISP, buttonXPositions[EQUIP_SLOT_C_DOWN], buttonYPositions[EQUIP_SLOT_C_DOWN],
 +        buttonSizes[EQUIP_SLOT_C_DOWN], buttonSizes[EQUIP_SLOT_C_DOWN], buttonScales[EQUIP_SLOT_C_DOWN] * 2,
-+        buttonScales[EQUIP_SLOT_C_DOWN] * 2, 255, 240, 0, interfaceCtx->cDownAlpha, COSMETIC_ELEMENT_C_DOWN_BUTTON);
++        buttonScales[EQUIP_SLOT_C_DOWN] * 2, 255, 240, 0, MASKPAD_TOUCH_ALPHA(interfaceCtx->cDownAlpha),
++        COSMETIC_ELEMENT_C_DOWN_BUTTON);
      // C-Right Button Color & Texture
      HudEditor_SetActiveElement(HUD_EDITOR_ELEMENT_C_RIGHT);
      OVERLAY_DISP = Gfx_DrawRect_DropShadowOverride(
@@ -801,11 +859,11 @@ index 9972a1e00..b6fbaaea6 100644
 -        sBCButtonScales[EQUIP_SLOT_C_RIGHT] * 2, 255, 240, 0, interfaceCtx->cRightAlpha,
 +        OVERLAY_DISP, buttonXPositions[EQUIP_SLOT_C_RIGHT], buttonYPositions[EQUIP_SLOT_C_RIGHT],
 +        buttonSizes[EQUIP_SLOT_C_RIGHT], buttonSizes[EQUIP_SLOT_C_RIGHT], buttonScales[EQUIP_SLOT_C_RIGHT] * 2,
-+        buttonScales[EQUIP_SLOT_C_RIGHT] * 2, 255, 240, 0, interfaceCtx->cRightAlpha,
++        buttonScales[EQUIP_SLOT_C_RIGHT] * 2, 255, 240, 0, MASKPAD_TOUCH_ALPHA(interfaceCtx->cRightAlpha),
          COSMETIC_ELEMENT_C_RIGHT_BUTTON);
- 
+
      if (!IS_PAUSE_STATE_GAMEOVER(pauseCtx)) {
-@@ -5987,6 +6052,24 @@ void Interface_DrawItemButtons(PlayState* play) {
+@@ -5987,6 +6058,24 @@ void Interface_DrawItemButtons(PlayState* play) {
      if (interfaceCtx->tatlCalling && !IS_PAUSED(&play->pauseCtx) && (play->csCtx.state == CS_STATE_IDLE) &&
          (sPictoState == PICTO_BOX_STATE_OFF)) {
          if (sCUpInvisible == 0) {
@@ -829,18 +887,22 @@ index 9972a1e00..b6fbaaea6 100644
 +#endif
              // C-Up Button Texture, Color & Label (Tatl Text)
              gDPPipeSync(OVERLAY_DISP++);
- 
-@@ -6002,7 +6085,8 @@ void Interface_DrawItemButtons(PlayState* play) {
+
+@@ -6002,10 +6091,11 @@ void Interface_DrawItemButtons(PlayState* play) {
              }
- 
+
              HudEditor_SetActiveElement(HUD_EDITOR_ELEMENT_C_UP);
 -            OVERLAY_DISP = Gfx_DrawRect_DropShadow(OVERLAY_DISP, 254, 16, 16, 16, 2 << 10, 2 << 10, 255, 240, 0, temp);
 +            OVERLAY_DISP = Gfx_DrawRect_DropShadow(OVERLAY_DISP, cUpLeft, cUpTop, cUpSize, cUpSize, cUpScale, cUpScale,
-+                                                   255, 240, 0, temp);
- 
++                                                   255, 240, 0, MASKPAD_TOUCH_ALPHA(temp));
+
              gDPPipeSync(OVERLAY_DISP++);
-             gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, temp);
-@@ -6021,12 +6105,12 @@ void Interface_DrawItemButtons(PlayState* play) {
+-            gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, temp);
++            gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, MASKPAD_TOUCH_ALPHA(temp));
+             gDPSetEnvColor(OVERLAY_DISP++, 0, 0, 0, 0);
+             gDPSetCombineLERP(OVERLAY_DISP++, PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0,
+                               PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0);
+@@ -6021,12 +6111,12 @@ void Interface_DrawItemButtons(PlayState* play) {
                      hudEditorActiveElement = HUD_EDITOR_ELEMENT_NONE;
                  } else {
                      // All of this information was derived from the original call to gSPTextureRectangle below
@@ -856,10 +918,10 @@ index 9972a1e00..b6fbaaea6 100644
 +                    s16 rectTop = cUpTop + MAX(1, 2 * nativeHudCUpScale);
 +                    s16 dsdx = MAX(1, (1 << 10) * 32 / rectWidth);
 +                    s16 dtdy = MAX(1, (1 << 10) * 12 / rectHeight);
- 
+
                      HudEditor_ModifyDrawValues(&rectLeft, &rectTop, &rectWidth, &rectHeight, &dsdx, &dtdy);
- 
-@@ -6037,8 +6121,14 @@ void Interface_DrawItemButtons(PlayState* play) {
+
+@@ -6037,8 +6127,14 @@ void Interface_DrawItemButtons(PlayState* play) {
                  }
              } else {
                  // #endregion
@@ -875,8 +937,25 @@ index 9972a1e00..b6fbaaea6 100644
 +                    (1 << 10) * 12 / labelHeight);
              }
          }
- 
-@@ -6066,9 +6156,9 @@ void Interface_DrawItemButtons(PlayState* play) {
+
+@@ -6055,20 +6151,23 @@ void Interface_DrawItemButtons(PlayState* play) {
+     for (temp = EQUIP_SLOT_C_LEFT; temp <= EQUIP_SLOT_C_RIGHT; temp++) {
+         if (GET_CUR_FORM_BTN_ITEM(temp) > 0xF0) {
+             if (temp == EQUIP_SLOT_C_LEFT) {
+-                gDPSetPrimColorOverride(OVERLAY_DISP++, 0, 0, 255, 240, 0, interfaceCtx->cLeftAlpha,
++                gDPSetPrimColorOverride(OVERLAY_DISP++, 0, 0, 255, 240, 0,
++                                        MASKPAD_TOUCH_ALPHA(interfaceCtx->cLeftAlpha),
+                                         COSMETIC_ELEMENT_C_LEFT_BUTTON);
+             } else if (temp == EQUIP_SLOT_C_DOWN) {
+-                gDPSetPrimColorOverride(OVERLAY_DISP++, 0, 0, 255, 240, 0, interfaceCtx->cDownAlpha,
++                gDPSetPrimColorOverride(OVERLAY_DISP++, 0, 0, 255, 240, 0,
++                                        MASKPAD_TOUCH_ALPHA(interfaceCtx->cDownAlpha),
+                                         COSMETIC_ELEMENT_C_DOWN_BUTTON);
+             } else { // EQUIP_SLOT_C_RIGHT
+-                gDPSetPrimColorOverride(OVERLAY_DISP++, 0, 0, 255, 240, 0, interfaceCtx->cRightAlpha,
++                gDPSetPrimColorOverride(OVERLAY_DISP++, 0, 0, 255, 240, 0,
++                                        MASKPAD_TOUCH_ALPHA(interfaceCtx->cRightAlpha),
+                                         COSMETIC_ELEMENT_C_RIGHT_BUTTON);
              }
              HudEditor_SetActiveElement(temp);
              OVERLAY_DISP =
@@ -888,8 +967,8 @@ index 9972a1e00..b6fbaaea6 100644
 +                                   buttonScales[temp] * 2, buttonScales[temp] * 2);
          }
      }
- 
-@@ -6216,6 +6306,32 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
+
+@@ -6216,6 +6315,32 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
          24, // EQUIP_SLOT_C_DOWN
          24, // EQUIP_SLOT_C_RIGHT
      };
@@ -919,10 +998,10 @@ index 9972a1e00..b6fbaaea6 100644
 +        rectTop = nativeHudY - rectHeight * 0.5f;
 +    }
 +#endif
- 
+
      OPEN_DISPS(play->state.gfxCtx);
- 
-@@ -6231,13 +6347,6 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
+
+@@ -6231,13 +6356,6 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
              hudEditorActiveElement = HUD_EDITOR_ELEMENT_NONE;
          } else {
              // All of this information was derived from the original call to gSPTextureRectangle below
@@ -934,9 +1013,9 @@ index 9972a1e00..b6fbaaea6 100644
 -            s16 dtdy = sItemIconTextureScales[button];
 -
              HudEditor_ModifyDrawValues(&rectLeft, &rectTop, &rectWidth, &rectHeight, &dsdx, &dtdy);
- 
+
              hudEditorActiveElement = HUD_EDITOR_ELEMENT_NONE;
-@@ -6247,10 +6356,8 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
+@@ -6247,10 +6365,8 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
          }
          // #endregion
      } else {
@@ -947,9 +1026,9 @@ index 9972a1e00..b6fbaaea6 100644
 +        gSPWideTextureRectangle(OVERLAY_DISP++, rectLeft << 2, rectTop << 2, (rectLeft + rectWidth) << 2,
 +                                (rectTop + rectHeight) << 2, G_TX_RENDERTILE, 0, 0, dsdx << 1, dtdy << 1);
      }
- 
+
      CLOSE_DISPS(play->state.gfxCtx);
-@@ -6259,6 +6366,26 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
+@@ -6259,6 +6375,26 @@ void Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 butt
  void Interface_DrawAmmoCount(PlayState* play, s16 button, s16 alpha) {
      static s16 sAmmoDigitsXPositions[] = { 162, 228, 250, 272 };
      static s16 sAmmoDigitsYPositions[] = { 35, 35, 51, 35 };
@@ -976,7 +1055,7 @@ index 9972a1e00..b6fbaaea6 100644
      u8 i;
      u16 ammo;
      OPEN_DISPS(play->state.gfxCtx);
-@@ -6320,15 +6447,13 @@ void Interface_DrawAmmoCount(PlayState* play, s16 button, s16 alpha) {
+@@ -6320,15 +6456,13 @@ void Interface_DrawAmmoCount(PlayState* play, s16 button, s16 alpha) {
              HudEditor_SetActiveElement(button);
              OVERLAY_DISP =
                  Gfx_DrawTexRectIA8(OVERLAY_DISP, gAmmoDigitTextures[i], AMMO_DIGIT_TEX_WIDTH, AMMO_DIGIT_TEX_HEIGHT,
@@ -984,7 +1063,7 @@ index 9972a1e00..b6fbaaea6 100644
 -                                   AMMO_DIGIT_TEX_HEIGHT, 1 << 10, 1 << 10);
 +                                   ammoX, ammoY, AMMO_DIGIT_TEX_WIDTH, AMMO_DIGIT_TEX_HEIGHT, 1 << 10, 1 << 10);
          }
- 
+
          // Draw lower digit (ones)
          HudEditor_SetActiveElement(button);
          OVERLAY_DISP =
@@ -992,12 +1071,131 @@ index 9972a1e00..b6fbaaea6 100644
 -                               sAmmoDigitsYPositions[button], 8, 8, 1 << 10, 1 << 10);
 +            Gfx_DrawTexRectIA8(OVERLAY_DISP, gAmmoDigitTextures[ammo], 8, 8, ammoX + 6, ammoY, 8, 8, 1 << 10, 1 << 10);
      }
- 
+
      CLOSE_DISPS(play->state.gfxCtx);
-@@ -8888,6 +9013,12 @@ void Interface_Draw(PlayState* play) {
+@@ -6341,7 +6475,7 @@ void Interface_DrawBButtonIcons(PlayState* play) {
+     OPEN_DISPS(play->state.gfxCtx);
+
+     gDPPipeSync(OVERLAY_DISP++);
+-    gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, interfaceCtx->bAlpha);
++    gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, MASKPAD_TOUCH_ALPHA(interfaceCtx->bAlpha));
+     gDPSetCombineMode(OVERLAY_DISP++, G_CC_MODULATEIA_PRIM, G_CC_MODULATEIA_PRIM);
+
+     if (!interfaceCtx->bButtonInterfaceDoActionActive && (player->stateFlags3 & PLAYER_STATE3_1000000)) {
+@@ -6351,7 +6485,7 @@ void Interface_DrawBButtonIcons(PlayState* play) {
+             gDPSetCombineLERP(OVERLAY_DISP++, PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0,
+                               PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0);
+
+-            Interface_DrawAmmoCount(play, EQUIP_SLOT_B, interfaceCtx->bAlpha);
++            Interface_DrawAmmoCount(play, EQUIP_SLOT_B, MASKPAD_TOUCH_ALPHA(interfaceCtx->bAlpha));
+         }
+     } else if ((!interfaceCtx->bButtonPlayerDoActionActive && !interfaceCtx->bButtonInterfaceDoActionActive) ||
+                ((interfaceCtx->bButtonPlayerDoActionActive &&
+@@ -6374,7 +6508,7 @@ void Interface_DrawBButtonIcons(PlayState* play) {
+                          (gSaveContext.save.entrance != ENTRANCE(ROMANI_RANCH, 0))) &&
+                         ((gSaveContext.minigameStatus != MINIGAME_STATUS_ACTIVE) || !CHECK_EVENTINF(EVENTINF_35)) &&
+                         (!CHECK_WEEKEVENTREG(WEEKEVENTREG_31_80) || (play->bButtonAmmoPlusOne != 100))) {
+-                        Interface_DrawAmmoCount(play, EQUIP_SLOT_B, interfaceCtx->bAlpha);
++                        Interface_DrawAmmoCount(play, EQUIP_SLOT_B, MASKPAD_TOUCH_ALPHA(interfaceCtx->bAlpha));
+                     }
+                 }
+             }
+@@ -6383,7 +6517,7 @@ void Interface_DrawBButtonIcons(PlayState* play) {
+         gDPPipeSync(OVERLAY_DISP++);
+         gDPSetCombineLERP(OVERLAY_DISP++, PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0,
+                           PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0);
+-        gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, interfaceCtx->bAlpha);
++        gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, MASKPAD_TOUCH_ALPHA(interfaceCtx->bAlpha));
+         gDPLoadTextureBlock_4b(OVERLAY_DISP++, interfaceCtx->doActionSegment[DO_ACTION_SEG_B].mainTex, G_IM_FMT_IA,
+                                DO_ACTION_TEX_WIDTH, DO_ACTION_TEX_HEIGHT, 0, G_TX_NOMIRROR | G_TX_WRAP,
+                                G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
+@@ -6426,7 +6560,7 @@ void Interface_DrawBButtonIcons(PlayState* play) {
+         gDPPipeSync(OVERLAY_DISP++);
+         gDPSetCombineLERP(OVERLAY_DISP++, PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0,
+                           PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0);
+-        gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, interfaceCtx->bAlpha);
++        gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, MASKPAD_TOUCH_ALPHA(interfaceCtx->bAlpha));
+         gDPLoadTextureBlock_4b(OVERLAY_DISP++, interfaceCtx->doActionSegment[DO_ACTION_SEG_B].subTex, G_IM_FMT_IA,
+                                DO_ACTION_TEX_WIDTH, DO_ACTION_TEX_HEIGHT, 0, G_TX_NOMIRROR | G_TX_WRAP,
+                                G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
+@@ -6481,39 +6615,39 @@ void Interface_DrawCButtonIcons(PlayState* play) {
+
+     // C-Left Button Icon & Ammo Count
+     if (BUTTON_ITEM_EQUIP(0, EQUIP_SLOT_C_LEFT) < ITEM_F0) {
+-        gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, interfaceCtx->cLeftAlpha);
++        gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, MASKPAD_TOUCH_ALPHA(interfaceCtx->cLeftAlpha));
+         gDPSetCombineMode(OVERLAY_DISP++, G_CC_MODULATEIA_PRIM, G_CC_MODULATEIA_PRIM);
+         Interface_DrawItemIconTexture(play, interfaceCtx->iconItemSegment[EQUIP_SLOT_C_LEFT], EQUIP_SLOT_C_LEFT);
+         gDPPipeSync(OVERLAY_DISP++);
+         gDPSetCombineLERP(OVERLAY_DISP++, PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0,
+                           PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0);
+-        Interface_DrawAmmoCount(play, EQUIP_SLOT_C_LEFT, interfaceCtx->cLeftAlpha);
++        Interface_DrawAmmoCount(play, EQUIP_SLOT_C_LEFT, MASKPAD_TOUCH_ALPHA(interfaceCtx->cLeftAlpha));
+     }
+
+     gDPPipeSync(OVERLAY_DISP++);
+
+     // C-Down Button Icon & Ammo Count
+     if (BUTTON_ITEM_EQUIP(0, EQUIP_SLOT_C_DOWN) < ITEM_F0) {
+-        gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, interfaceCtx->cDownAlpha);
++        gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, MASKPAD_TOUCH_ALPHA(interfaceCtx->cDownAlpha));
+         gDPSetCombineMode(OVERLAY_DISP++, G_CC_MODULATEIA_PRIM, G_CC_MODULATEIA_PRIM);
+         Interface_DrawItemIconTexture(play, interfaceCtx->iconItemSegment[EQUIP_SLOT_C_DOWN], EQUIP_SLOT_C_DOWN);
+         gDPPipeSync(OVERLAY_DISP++);
+         gDPSetCombineLERP(OVERLAY_DISP++, PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0,
+                           PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0);
+-        Interface_DrawAmmoCount(play, EQUIP_SLOT_C_DOWN, interfaceCtx->cDownAlpha);
++        Interface_DrawAmmoCount(play, EQUIP_SLOT_C_DOWN, MASKPAD_TOUCH_ALPHA(interfaceCtx->cDownAlpha));
+     }
+
+     gDPPipeSync(OVERLAY_DISP++);
+
+     // C-Right Button Icon & Ammo Count
+     if (BUTTON_ITEM_EQUIP(0, EQUIP_SLOT_C_RIGHT) < ITEM_F0) {
+-        gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, interfaceCtx->cRightAlpha);
++        gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, MASKPAD_TOUCH_ALPHA(interfaceCtx->cRightAlpha));
+         gDPSetCombineMode(OVERLAY_DISP++, G_CC_MODULATEIA_PRIM, G_CC_MODULATEIA_PRIM);
+         Interface_DrawItemIconTexture(play, interfaceCtx->iconItemSegment[EQUIP_SLOT_C_RIGHT], EQUIP_SLOT_C_RIGHT);
+         gDPPipeSync(OVERLAY_DISP++);
+         gDPSetCombineLERP(OVERLAY_DISP++, PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0,
+                           PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0);
+-        Interface_DrawAmmoCount(play, EQUIP_SLOT_C_RIGHT, interfaceCtx->cRightAlpha);
++        Interface_DrawAmmoCount(play, EQUIP_SLOT_C_RIGHT, MASKPAD_TOUCH_ALPHA(interfaceCtx->cRightAlpha));
+     }
+
+     CLOSE_DISPS(play->state.gfxCtx);
+@@ -6590,7 +6724,7 @@ void Interface_DrawAButton(PlayState* play) {
+
+     OPEN_DISPS(play->state.gfxCtx);
+
+-    aAlpha = interfaceCtx->aAlpha;
++    aAlpha = MASKPAD_TOUCH_ALPHA(interfaceCtx->aAlpha);
+
+     if (aAlpha > 100) {
+         aAlpha = 100;
+@@ -6620,7 +6754,8 @@ void Interface_DrawAButton(PlayState* play) {
+     gDPPipeSync(OVERLAY_DISP++);
+     Interface_SetPerspectiveView(play, 23 + R_A_BTN_Y_OFFSET, 68 + R_A_BTN_Y_OFFSET, 190, 235);
+     gSPVertex(OVERLAY_DISP++, &interfaceCtx->actionVtx[0], 4, 0);
+-    gDPSetPrimColorOverride(OVERLAY_DISP++, 0, 0, 100, 200, 255, interfaceCtx->aAlpha, COSMETIC_ELEMENT_A_BUTTON);
++    gDPSetPrimColorOverride(OVERLAY_DISP++, 0, 0, 100, 200, 255,
++                            MASKPAD_TOUCH_ALPHA(interfaceCtx->aAlpha), COSMETIC_ELEMENT_A_BUTTON);
+     gSP1Quadrangle(OVERLAY_DISP++, 0, 2, 3, 1, 0);
+
+     // Draw A Button Do-Action
+@@ -6629,7 +6764,7 @@ void Interface_DrawAButton(PlayState* play) {
+     gSPSetGeometryMode(OVERLAY_DISP++, G_CULL_BACK);
+     gDPSetCombineLERP(OVERLAY_DISP++, PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0, PRIMITIVE,
+                       ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0);
+-    gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, interfaceCtx->aAlpha);
++    gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, MASKPAD_TOUCH_ALPHA(interfaceCtx->aAlpha));
+     gDPSetEnvColor(OVERLAY_DISP++, 0, 0, 0, 0);
+
+     // In screen space with a perspective view, the z axis acts as a scale
+@@ -8888,6 +9023,12 @@ void Interface_Draw(PlayState* play) {
      s16 counterDigits[4];
      s16 magicAlpha;
- 
+
 +#ifdef __IOS__
 +    MaskPad_SetNativeHudTouchGameplayActive(gSaveContext.gameMode == GAMEMODE_NORMAL &&
 +                                               pauseCtx->state == PAUSE_STATE_OFF &&
@@ -1005,10 +1203,10 @@ index 9972a1e00..b6fbaaea6 100644
 +#endif
 +
      OPEN_DISPS(play->state.gfxCtx);
- 
+
      gSPSegment(OVERLAY_DISP++, 0x02, interfaceCtx->parameterSegment);
 diff --git a/mm/src/code/z_play.c b/mm/src/code/z_play.c
-index 1b568b522..d1e305fc8 100644
+index 1b568b522..a93df5e11 100644
 --- a/mm/src/code/z_play.c
 +++ b/mm/src/code/z_play.c
 @@ -4,6 +4,9 @@
@@ -1018,13 +1216,13 @@ index 1b568b522..d1e305fc8 100644
 +#ifdef __IOS__
 +#include "ios/MaskPadTouchControls.h"
 +#endif
- 
+
  // Variables are put before most headers as a hacky way to bypass bss reordering
  s16 sTransitionFillTimer;
 @@ -411,6 +414,10 @@ void Play_Destroy(GameState* thisx) {
      PlayState* this = (PlayState*)thisx;
      GraphicsContext* gfxCtx = this->state.gfxCtx;
- 
+
 +#ifdef __IOS__
 +    MaskPad_SetNativeHudTouchGameplayActive(0);
 +#endif
@@ -1032,7 +1230,9 @@ index 1b568b522..d1e305fc8 100644
      if (sBombersNotebookOpen) {
          MsgEvent_SendNullTask();
          SysCfb_SetLoResMode();
-@@ -1112,6 +1119,11 @@ void Play_Update(PlayState* this) {
+@@ -1110,6 +1117,11 @@ void Play_UpdateMain(PlayState* this) {
+ }
+
  void Play_Update(PlayState* this) {
 +#if defined(__IOS__) && defined(MASKPAD_UI_TEST_HARNESS)
 +    MaskPad_ReportConsumedInput(this->state.input[0].cur.button,
@@ -1042,5 +1242,3 @@ index 1b568b522..d1e305fc8 100644
      if (!sBombersNotebookOpen) {
          if (this->pauseCtx.bombersNotebookOpen) {
              sBombersNotebookOpen = true;
-             sBombersNotebook.loadState = BOMBERS_NOTEBOOK_LOAD_STATE_NONE;
-         }

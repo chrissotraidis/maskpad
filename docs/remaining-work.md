@@ -80,6 +80,15 @@ after their exact gate is observed.
   `af2280cb89d5a123130e1b097960bd4bb4cdedce8c04ec0fcbd290c302c56275`.
 - Replaced the README screenshot placeholders with approved current-build
   iPad Simulator gameplay, touch-controller, and Controls captures.
+- Added a persisted 25%–100% touch-opacity control without changing hit
+  targets, bindings, layout geometry, or the full-opacity layout editor.
+- Reused Metal depth-stencil states and corrected the iOS MSAA CVar read, then
+  passed the complete three-test iPad Simulator regression suite.
+- Stopped iOS gameplay simulation while SDL reports that presentation is
+  inactive, while continuing to pump lifecycle events so foreground recovery
+  remains responsive.
+- Replaced the README gallery with five maintainer-approved physical-iPad
+  captures and selected the sword-combat image as the hero.
 
 All in-scope Simulator implementation gates are closed.
 
@@ -92,11 +101,17 @@ gate now passes on representative iPhone and iPad Simulators.
 
 ## Physical-device, signing, and distribution gates
 
-- Signed installation on physical iPhone and iPad.
-- Physical touch ergonomics, Pencil/trackpad behavior, controller
+The app has been signed, installed, launched, updated in place, and played on
+a 12.9-inch iPad Pro (6th generation) running iPadOS 26.5.2, with its local ROM
+and save data preserved. Touch controls and speaker audio work there. Reported
+area-load frame losses and occasional music skips remain unresolved.
+
+- Signed installation and in-place update on physical iPhone.
+- Extended physical touch ergonomics, Pencil/trackpad behavior, controller
   connect/reconnect, rumble, and motion.
-- Speaker, headphone, Bluetooth, interruption, and route-change audio.
-- Performance, memory pressure, thermals, suspend/resume endurance, and
-  in-place signed update preservation.
+- Headphone, Bluetooth, interruption, and route-change audio.
+- Performance, memory pressure, thermals, and suspend/resume endurance.
+- Physical screenshot-editor pause/resume acceptance with the inactive-loop
+  fix.
 - Apple development-team provisioning, TestFlight/App Store/sideload
   distribution, release approval, and upstream licensing clarification.
