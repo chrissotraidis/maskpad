@@ -7,15 +7,19 @@
 </p>
 
 <p align="center">
+  <a href="https://www.buymeacoffee.com/chrissotraidis"><img alt="Buy me a coffee" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="36"></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/chrissotraidis/maskpad/actions/workflows/ios-build.yml"><img alt="MaskPad iOS build" src="https://github.com/chrissotraidis/maskpad/actions/workflows/ios-build.yml/badge.svg"></a>
   <img alt="iOS 14+" src="https://img.shields.io/badge/iOS%20%2F%20iPadOS-14%2B-0A84FF?logo=apple">
   <img alt="Metal renderer" src="https://img.shields.io/badge/renderer-Metal-5E5CE6">
   <img alt="Simulator tested" src="https://img.shields.io/badge/iPhone%20%2F%20iPad%20Simulator-tested-30D158">
-  <img alt="Physical devices unverified" src="https://img.shields.io/badge/physical%20devices-unverified-FF9F0A">
+  <img alt="Physical iPad tested" src="https://img.shields.io/badge/physical%20iPad-tested-30D158">
   <img alt="ROM not included" src="https://img.shields.io/badge/game%20data-not%20included-FF453A">
 </p>
 
-![MaskPad gameplay on an iPad Simulator with the complete touch controller](docs/readme/maskpad-gameplay.jpg)
+![MaskPad sword combat on a physical iPad with transparent touch controls](docs/readme/maskpad-hero-ipad.jpg)
 
 MaskPad packages the full
 [2 Ship 2 Harkinian](https://github.com/HarbourMasters/2ship2harkinian)
@@ -34,19 +38,16 @@ relicense third-party projects or game material.
 | Option | Status | What to do |
 |---|---|---|
 | Local Simulator build | **Verified** | Best for development, import-flow checks, and UI testing. |
-| Local device build | **Builds unsigned** | Configure your own Apple development team and bundle identifier before installation. |
+| Local iPad build | **Verified locally** | Configure your own Apple development team and bundle identifier before installation. |
 | Unsigned `.ipa` | **Buildable locally** | Run the packaging script, then re-sign the result for your own device. No public binary release is currently published. |
 | App Store / TestFlight | **Not announced** | No listing or public TestFlight currently exists. |
 
-The current source has been exercised on iPhone 16 Pro and iPad Pro 11-inch
-(M4) Simulators running iOS 18.5. ROM import, local archive generation,
-gameplay, touch input, layout editing, separate phone/tablet persistence,
-menu transitions, native HUD alignment, and background/foreground recovery
-have been verified there.
-
-Simulator proof is not physical-device acceptance. Audio routes, sustained
-multi-touch ergonomics, controller reconnect, rumble, motion, performance,
-thermals, signing, and in-place updates remain hardware gates.
+The current source has been exercised in iPhone and iPad Simulators and on a
+12.9-inch iPad Pro (6th generation) running iPadOS 26.5.2. ROM import, local
+archive loading, gameplay, touch input, save loading, signing, and in-place
+updates have been exercised on that hardware.
+Area-load frame pacing remains under active investigation; controller reconnect,
+rumble, motion, audio-route coverage, and longer thermal tests are still open.
 
 ## Get started
 
@@ -114,6 +115,8 @@ model instead of approximating it from screenshots:
 - **Right:** Start, L/R, and transparent A/B/C targets aligned to the native
   Majora's Mask HUD.
 - **Menu:** `•••` remains available when gameplay controls are hidden.
+- **Transparency:** enable **Touch Control Transparency** to reveal a persisted
+  25%–100% opacity slider. It is off by default and never changes hit targets.
 - **Customize:** move, resize from 70%–150%, hide/show, reset, and save
   separate normalized phone and tablet layouts.
 - **Safety:** opening menus, editing, disabling controls, rebuilding the
@@ -137,40 +140,55 @@ layout editor. A separate user-data-gated suite observes the real
 pass on the representative iPhone and iPad Simulators.
 
 See [`docs/controls.md`](docs/controls.md) for the full behavior contract and
-[`docs/testing.md`](docs/testing.md) for the exact evidence.
+[`docs/touch-control-transparency.md`](docs/touch-control-transparency.md) for
+the opacity behavior. [`docs/testing.md`](docs/testing.md) records the exact
+test evidence.
 
 ## Current screenshots
 
 <table>
   <tr>
     <td width="50%">
-      <img src="docs/readme/maskpad-controls.jpg" alt="MaskPad touch gameplay on the current iPad Simulator build">
+      <img src="docs/readme/maskpad-swamp-ipad.jpg" alt="MaskPad exploration on a physical iPad with the complete touch controller">
     </td>
     <td width="50%">
-      <img src="docs/readme/maskpad-settings.jpg" alt="MaskPad Controls settings on the current iPad Simulator build">
+      <img src="docs/readme/maskpad-clock-town-story-ipad.jpg" alt="MaskPad Clock Town character scene on a physical iPad">
     </td>
   </tr>
   <tr>
-    <td align="center"><strong>Touch-first gameplay</strong><br>The complete landscape controller stays within thumb reach.</td>
-    <td align="center"><strong>Adjust while running</strong><br>Touch controls and layout customization live inside 2S2H's Controls page.</td>
+    <td align="center"><strong>Touch-first exploration</strong><br>The complete landscape controller stays within thumb reach.</td>
+    <td align="center"><strong>Story and minigames</strong><br>Transparent targets preserve the original HUD and scene.</td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/readme/maskpad-clock-town-ipad.jpg" alt="MaskPad Clock Town gameplay on a physical iPad">
+    </td>
+    <td width="50%">
+      <img src="docs/readme/maskpad-stock-pot-inn-ipad.jpg" alt="MaskPad Stock Pot Inn dialogue on a physical iPad">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Clock Town</strong><br>Native Metal rendering across busy outdoor areas.</td>
+    <td align="center"><strong>Full adventure</strong><br>Dialogue, items, saves, and touch input in the signed iPad build.</td>
   </tr>
 </table>
 
-The hero and gallery were captured from the current iPad Pro 11-inch (M4),
-iOS 18.5 Simulator build using ignored, user-owned game data. No ROM or
-generated game archive is present in this repository. Capture provenance is
-recorded in [`docs/readme/README.md`](docs/readme/README.md).
+The hero and gallery were captured from the current signed build on a physical
+12.9-inch iPad Pro (6th generation) running iPadOS 26.5.2, using ignored,
+user-owned game data. No ROM or generated game archive is present in this
+repository. Capture provenance is recorded in
+[`docs/readme/README.md`](docs/readme/README.md).
 
 ## What works
 
 | Area | Current result |
 |---|---|
 | Native app | Full 2S2H app builds for arm64 iOS/iPadOS 14+ |
-| Rendering | Metal gameplay renders in iPhone and iPad Simulators |
+| Rendering | Metal gameplay renders in Simulator and on physical iPad |
 | Game setup | Files-visible ROM discovery and local `mm.o2r` generation work |
-| Touch | Stick, D-pad, A/B/Z, C buttons, shoulders, Start, and persistent menu |
+| Touch | Stick, D-pad, A/B/Z, C buttons, shoulders, Start, persistent menu, and adjustable opacity |
 | Layout editor | Move, resize, hide/show, reset, safe-area clamp, and device-class persistence |
-| Lifecycle | Input, audio queue, rendering, and configuration are safely suspended and restored |
+| Lifecycle | Input, game simulation, audio, rendering, and configuration pause while iOS is inactive and restore on return |
 | Input options | Touch plus existing keyboard, pointer, and SDL controller paths |
 | Packaging | ROM, generated game data, signing material, and dependency-license audits |
 
@@ -237,9 +255,9 @@ issues requesting game data or download links.
 <details>
 <summary><strong>Does audio work?</strong></summary>
 
-The audio integration runs in Simulator and is paused/cleared across app
-lifecycle transitions. Speaker, headphone, Bluetooth, interruption, and
-route-change acceptance still require physical-device testing.
+Speaker audio works on the tested physical iPad, although occasional music
+skips remain under investigation. Headphone, Bluetooth, interruption, and
+route-change acceptance still need physical-device coverage.
 </details>
 
 <details>
@@ -286,6 +304,7 @@ therefore source-available, not broadly redistributable open source. See
 | [`docs/building.md`](docs/building.md) | Full build, installation, signing, and packaging guide |
 | [`docs/install-ipa.md`](docs/install-ipa.md) | Personal re-signing and installation guide |
 | [`docs/controls.md`](docs/controls.md) | Touch mapping, editor, Z latch, and native HUD contract |
+| [`docs/touch-control-transparency.md`](docs/touch-control-transparency.md) | Persisted opacity setting and visual behavior |
 | [`docs/testing.md`](docs/testing.md) | Exact Simulator, gameplay, build, and package evidence |
 | [`docs/release-checklist.md`](docs/release-checklist.md) | Source and IPA publication gates |
 | [`docs/remaining-work.md`](docs/remaining-work.md) | Evidence ledger and remaining physical gates |

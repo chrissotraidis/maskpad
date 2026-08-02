@@ -25,9 +25,14 @@ if [ ! -d "$BUILD" ]; then
     "$ROOT/scripts/configure-ios.sh" "$MODE"
 fi
 
+APP="$BUILD/mm/$PRODUCT_DIR/MaskPad.app"
+# An unsigned rebuild can otherwise retain signing files from a prior local
+# device install because Xcode leaves stale bundle contents in place.
+rm -rf "$APP/_CodeSignature"
+rm -f "$APP/embedded.mobileprovision"
+
 cmake --build "$BUILD" --target 2ship --config Release -- \
     -quiet -sdk "$SDK" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
-APP="$BUILD/mm/$PRODUCT_DIR/MaskPad.app"
 test -x "$APP/MaskPad"
 echo "$APP"

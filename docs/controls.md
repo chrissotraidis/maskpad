@@ -45,6 +45,11 @@ and tablet namespaces, and every control is clamped to the safe area.
 The **Legacy Fixed Touch Controls** option keeps the fixed UIKit presentation
 and disables customization, Z latching, and native HUD artwork alignment.
 
+Enable **Touch Control Transparency** to reveal a persisted 25%–100% opacity
+slider. Opacity changes only presentation: control frames, gesture recognizers,
+bindings, and saved layouts remain unchanged. The layout editor temporarily
+shows visible controls at full opacity.
+
 ## Native HUD behavior
 
 During gameplay the transparent A/B/C touch targets remain interactive while

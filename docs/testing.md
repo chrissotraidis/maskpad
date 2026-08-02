@@ -110,16 +110,38 @@ Run each gate on a representative landscape iPhone and iPad:
 - native A/B/C/C-item HUD art aligned to transparent touch targets;
 - Home backgrounding followed by icon resume returned to the same live scene.
 
-This evidence does not substitute for physical-device testing. The ROM-free
-suite proves UIKit-to-SDL delivery, while the user-data-gated gameplay suite
-proves the maintained mapping reaches the real 2S2H N64 input state on both
-representative Simulator classes.
+The ROM-free suite proves UIKit-to-SDL delivery, while the user-data-gated
+gameplay suite proves the maintained mapping reaches the real 2S2H N64 input
+state on both representative Simulator classes. Separate physical-iPad play
+has confirmed install, launch, local archive/save loading, touch input, and
+speaker audio, while also exposing unresolved area-load frame pacing and music
+skips.
+
+## Evidence observed on 2026-08-02
+
+- rebuilt the arm64 Simulator Release app after adding adjustable touch
+  opacity, Metal depth-state reuse, the corrected MSAA CVar read, and inactive
+  game-loop suspension;
+- passed all three MaskPad XCUITests on an iPad Pro 11-inch (M5), iOS 26.5
+  Simulator: control/lifecycle cancellation, layout editing/persistence, and
+  actual-engine mapped-input consumption;
+- confirmed the iOS lifecycle path continues pumping SDL events while
+  `IsFrameReady()` is false, but does not call `RunFrame()` until the app is
+  active again; and
+- published five maintainer-approved captures from the signed physical-iPad
+  build as optimized 1600-pixel-wide README images.
+
+The inactive-loop fix addresses the reported screenshot-editor time jump at
+its source. Repeating that exact interaction on the physical iPad remains the
+final acceptance check for this bug.
 
 ## Physical-device gates
 
-- signed install and in-place update on iPhone and iPad;
+- signed install and in-place update on iPhone;
 - sustained multi-touch feel, safe areas, Pencil/trackpad, and rotation;
 - controller connect/reconnect, rumble, and motion;
 - speaker, headphones, Bluetooth, interruptions, and route changes;
 - performance, memory pressure, suspend/resume endurance, and thermals;
+- physical screenshot-editor pause/resume acceptance after the inactive-loop
+  fix;
 - development-team provisioning and any distribution workflow.

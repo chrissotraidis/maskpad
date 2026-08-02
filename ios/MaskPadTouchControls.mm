@@ -8,6 +8,7 @@
 
 static std::atomic_bool sTouchControlsDesired(false);
 static std::atomic_bool sCustomizableTouchControlsDesired(false);
+static std::atomic<float> sTouchControlsOpacity(1.0f);
 static std::atomic_bool sTouchControlsMenuVisible(false);
 static std::atomic_bool sLayoutEditorActive(false);
 static BOOL sLayoutEditorRequested;
@@ -485,6 +486,7 @@ static MaskPadTouchButton* sMenuButton;
 @property(nonatomic, strong) MaskPadTouchButton* cRight;
 @property(nonatomic) BOOL customizableControls;
 @property(nonatomic) BOOL layoutEditing;
+@property(nonatomic) CGFloat touchControlsOpacity;
 @property(nonatomic, strong) NSArray<UIView*>* editableControls;
 @property(nonatomic, strong) NSMutableArray<UIGestureRecognizer*>* editGestures;
 @property(nonatomic, strong) NSMutableDictionary<NSString*, NSArray<NSNumber*>*>* layoutCenters;
@@ -502,6 +504,7 @@ static MaskPadTouchButton* sMenuButton;
 
 - (void)cancelAllInputs;
 - (void)setCustomizableControlsEnabled:(BOOL)enabled;
+- (void)setTouchControlsOpacity:(CGFloat)opacity;
 - (void)beginLayoutEditing;
 - (void)endLayoutEditing;
 - (void)installLayoutEditor;
@@ -607,6 +610,7 @@ static MaskPadTouchButton* sMenuButton;
         self.hiddenControls = [NSMutableSet set];
         self.defaultSizes = [NSMutableDictionary dictionary];
         self.editGestures = [NSMutableArray array];
+        self.touchControlsOpacity = 1.0;
 
         [self addSubview:self.controlStick];
         for (MaskPadTouchButton* button in self.buttons) {
@@ -1017,7 +1021,7 @@ static MaskPadTouchButton* sMenuButton;
     if (!self.customizableControls) {
         for (UIView* control in self.editableControls) {
             control.hidden = NO;
-            control.alpha = 1.0;
+            control.alpha = self.touchControlsOpacity;
             control.layer.shadowOpacity = 0.0;
         }
         [self layoutEditorPanel];
@@ -1048,7 +1052,7 @@ static MaskPadTouchButton* sMenuButton;
         [self clampControlToSafeBounds:control];
         BOOL hidden = [self.hiddenControls containsObject:key];
         control.hidden = self.layoutEditing ? NO : hidden;
-        control.alpha = self.layoutEditing && hidden ? 0.28 : 1.0;
+        control.alpha = self.layoutEditing ? (hidden ? 0.28 : 1.0) : self.touchControlsOpacity;
         BOOL selected = self.layoutEditing && control == self.selectedControl;
         control.layer.shadowColor =
             [UIColor colorWithRed:1.0 green:0.78 blue:0.16 alpha:1.0].CGColor;
@@ -1058,6 +1062,11 @@ static MaskPadTouchButton* sMenuButton;
     }
     [self layoutEditorPanel];
     [self bringSubviewToFront:self.editorPanel];
+}
+
+- (void)setTouchControlsOpacity:(CGFloat)opacity {
+    _touchControlsOpacity = std::clamp(opacity, 0.25, 1.0);
+    [self setNeedsLayout];
 }
 
 - (void)selectControl:(UIView*)control {
@@ -1489,6 +1498,7 @@ static void MaskPad_InstallMenuButton(UIWindow* window) {
         [sMenuButton removeFromSuperview];
         [window addSubview:sMenuButton];
     }
+    sMenuButton.alpha = sTouchControlsOpacity.load();
     [window bringSubviewToFront:sMenuButton];
 }
 
@@ -1541,6 +1551,7 @@ static void MaskPad_ApplyTouchControlsState(void) {
     }
     [sTouchOverlay
         setCustomizableControlsEnabled:sCustomizableTouchControlsDesired.load()];
+    [sTouchOverlay setTouchControlsOpacity:sTouchControlsOpacity.load()];
     if (sTouchOverlay.superview != window) {
         [sTouchOverlay removeFromSuperview];
         sTouchOverlay.frame = window.bounds;
@@ -1578,6 +1589,18 @@ void MaskPad_SetCustomizableTouchControlsEnabled(int enabled) {
         }
         [sTouchOverlay setCustomizableControlsEnabled:customizable];
         MaskPad_ApplyTouchControlsState();
+    });
+}
+
+void MaskPad_SetTouchControlsOpacity(float opacity) {
+    const float clampedOpacity = std::clamp(opacity, 0.25f, 1.0f);
+    sTouchControlsOpacity.store(clampedOpacity);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [sTouchOverlay setTouchControlsOpacity:clampedOpacity];
+        UIWindow* window = MaskPad_ActiveWindow();
+        if (window != nil) {
+            MaskPad_InstallMenuButton(window);
+        }
     });
 }
 
@@ -1816,4 +1839,15 @@ float MaskPad_GetNativeHudButtonScale(int button, float aspectRatio) {
 
     const float virtualWidth = normalizedWidth * 240.0f;
     return virtualWidth / nativeButtonWidths[button];
+}
+
+int MaskPad_GetNativeHudTouchAlpha(int alpha) {
+    const bool nativeTouchArtworkVisible =
+        sTouchControlsDesired.load() && sNativeHudTouchDesired.load() &&
+        sNativeHudTouchGameplayActive.load() && !sTouchControlsMenuVisible.load() &&
+        !sLayoutEditorActive.load();
+    if (!nativeTouchArtworkVisible) {
+        return std::clamp(alpha, 0, 255);
+    }
+    return std::clamp(static_cast<int>(alpha * sTouchControlsOpacity.load() + 0.5f), 0, 255);
 }
