@@ -17,9 +17,13 @@
 - [ ] physical-device audio, performance, controls, and endurance
 - [x] unsigned IPA audit
 - [x] approved current-build README captures contain no private local details
-- [ ] complete third-party notices and legal review
-- [ ] explicit approval for signing or distribution
+- [x] project rights notice and discovered third-party license files are
+      included in the unsigned IPA
+- [x] explicit maintainer approval for the unsigned, ROM-free `v0.1.0`
+      GitHub Release
+- [ ] written legal review before paid access, commercial binary licensing,
+      or official-store distribution
 
-Binary publishing, signing, TestFlight, App Store submission, and upstream
-changes are out of scope until separately authorized. Public source visibility
-does not authorize a binary distribution.
+The `v0.1.0` authorization is limited to the unsigned GitHub Release. Signing,
+TestFlight, App Store submission, paid/commercial distribution, and upstream
+changes remain out of scope until separately authorized.
