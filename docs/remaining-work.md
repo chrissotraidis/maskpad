@@ -89,6 +89,8 @@ after their exact gate is observed.
   remains responsive.
 - Replaced the README gallery with five maintainer-approved physical-iPad
   captures and selected the sword-combat image as the hero.
+- Published the audited, ROM-free `MaskPad-0.1.0-unsigned.ipa` and its SHA-256
+  file in the `v0.1.0` GitHub Release with explicit maintainer approval.
 
 All in-scope Simulator implementation gates are closed.
 
@@ -113,5 +115,5 @@ area-load frame losses and occasional music skips remain unresolved.
 - Performance, memory pressure, thermals, and suspend/resume endurance.
 - Physical screenshot-editor pause/resume acceptance with the inactive-loop
   fix.
-- Apple development-team provisioning, TestFlight/App Store/sideload
-  distribution, release approval, and upstream licensing clarification.
+- Apple development-team provisioning, TestFlight/App Store distribution,
+  paid/commercial distribution review, and upstream licensing clarification.

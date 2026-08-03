@@ -1,10 +1,27 @@
-# Install a locally built MaskPad IPA
+# Install the MaskPad IPA
 
 MaskPad's packaging script creates an unsigned IPA. It is not an App Store or
 TestFlight build. A personal sideload tool must re-sign it with your Apple ID
 before installation on an iPhone or iPad.
 
 The IPA does not include Majora's Mask, a ROM, or generated game data.
+
+## Download and verify
+
+Download both files from the [`v0.1.0` GitHub
+release](https://github.com/chrissotraidis/maskpad/releases/tag/v0.1.0):
+
+- `MaskPad-0.1.0-unsigned.ipa`
+- `MaskPad-0.1.0-unsigned.ipa.sha256`
+
+From the directory containing both downloads, verify the package before
+installing it:
+
+```sh
+shasum -a 256 -c MaskPad-0.1.0-unsigned.ipa.sha256
+```
+
+The command must report `MaskPad-0.1.0-unsigned.ipa: OK`.
 
 ## Build and package
 
@@ -29,7 +46,7 @@ current official documentation. The general flow is:
 
 1. Configure the tool with your own Apple ID and device.
 2. On iOS or iPadOS 16 and later, enable **Developer Mode** if required.
-3. Select the locally built unsigned IPA.
+3. Select the downloaded or locally built unsigned IPA.
 4. Allow the tool to re-sign and install it.
 5. Launch MaskPad once, then follow the README's
    [first-launch instructions](../README.md#first-launch).
