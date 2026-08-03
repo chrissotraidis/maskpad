@@ -8,11 +8,11 @@ scripts/verify-release.sh
 bash -n scripts/*.sh
 ```
 
-The safety gate audits publishable paths and Git history for ROMs, derived
-game data, build products, packages, signing material, large accidental
-files, and likely credentials. The release gate additionally asserts pins,
-reverse-applies patches, compares overlays, and can recursively inspect an
-app or IPA.
+The safety gate audits publishable paths and every reachable public-history
+blob for ROMs, derived game data, build products, packages, signing material,
+large accidental files, and likely credentials. The release gate additionally
+asserts pins, reverse-applies patches, compares overlays, and can recursively
+inspect an app or IPA.
 
 The opt-in, ROM-free Simulator UI suite reconstructs the test target and runs
 the same two deterministic tests on every supplied device:

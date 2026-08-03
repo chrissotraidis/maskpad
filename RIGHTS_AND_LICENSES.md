@@ -6,6 +6,12 @@ Unless a file says otherwise, no license is granted for MaskPad-owned
 integration code, scripts, documentation, artwork, or original patch content.
 Public access to this repository does not change that default.
 
+The build, packaging, and installation commands document the maintainer's
+validated process. They do not independently grant permission to copy,
+modify, redistribute, or distribute binaries containing MaskPad-owned work.
+Contact the maintainer before using that work beyond GitHub's public
+repository functionality.
+
 MaskPad builds against pinned third-party projects, including 2 Ship 2
 Harkinian, libultraship, ZAPDTR, OTRExporter, SDL, and their dependencies.
 This notice does not relicense, supersede, or claim ownership of those
@@ -30,9 +36,10 @@ its ROM-free packages. Users must provide their own legally acquired,
 supported game copy.
 
 The README gameplay screenshots are documentation captures from the current
-Simulator build using a user-owned game copy. Their inclusion does not grant
-rights to the depicted Nintendo game material or permit its reuse as project
-artwork or distributable game data.
+signed build on a physical 12.9-inch iPad Pro (6th generation) using a
+user-owned game copy. Their inclusion does not grant rights to the depicted
+Nintendo game material or permit its reuse as project artwork or distributable
+game data.
 
 The original forest-talisman icon in `ios/IconSource.png` was created
 specifically for MaskPad. It does not reproduce Nintendo character, logo,

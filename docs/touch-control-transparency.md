@@ -13,6 +13,7 @@ the size, position, or hit testing of any control.
   selection, hiding, moving, and resizing remain clear.
 - Legacy Fixed Touch Controls use the same opacity setting.
 
-Before release, verify both slider extremes, persistence after relaunch,
-unchanged hit targets, full-opacity layout editing, native HUD artwork, and
-legacy-layout behavior on Simulator and physical iPad.
+The Simulator release gate covers both slider extremes, persistence after
+relaunch, unchanged hit targets, full-opacity layout editing, native HUD
+artwork, and legacy-layout behavior. Repeat that matrix on physical iPad
+before closing the remaining hardware gate or authorizing binary distribution.

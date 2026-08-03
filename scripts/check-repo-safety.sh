@@ -30,7 +30,8 @@ fi
 # Audit publishable repository history only. Codex keeps local snapshot refs
 # under refs/codex/turn-diffs; those can faithfully contain ignored baseline
 # files and are not branch, remote, or tag history.
-history_paths="$(git rev-list --objects --branches --remotes --tags 2>/dev/null |
+history_objects="$(git rev-list --objects HEAD --branches --remotes --tags 2>/dev/null || true)"
+history_paths="$(printf '%s\n' "$history_objects" |
     awk 'NF > 1 { sub(/^[^ ]+ /, ""); print }' || true)"
 forbidden_history="$(printf '%s\n' "$history_paths" |
     grep -Ei "$forbidden_extensions|(^|/)[^/]+\.app/" || true)"
@@ -62,6 +63,21 @@ done < <(printf '%s\n' "$current_files")
 if [ -n "$credential_hits" ]; then
     printf '%s' "$credential_hits" >&2
     fail "a likely credential or private key exists in the current tree"
+fi
+
+history_credential_hits=""
+while IFS=' ' read -r object path; do
+    [ -n "${path:-}" ] || continue
+    [ "$(git cat-file -t "$object" 2>/dev/null || true)" = "blob" ] || continue
+    matches="$(git cat-file blob "$object" 2>/dev/null |
+        grep -anEI "$credential_pattern" || true)"
+    if [ -n "$matches" ]; then
+        history_credential_hits="${history_credential_hits}${path}@${object}:${matches}"$'\n'
+    fi
+done < <(printf '%s\n' "$history_objects")
+if [ -n "$history_credential_hits" ]; then
+    printf '%s' "$history_credential_hits" >&2
+    fail "a likely credential or private key exists in public Git history"
 fi
 
 bash -n scripts/*.sh

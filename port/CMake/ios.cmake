@@ -9,7 +9,7 @@ set(PNG_TOOLS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     PNG
     GIT_REPOSITORY https://github.com/pnggroup/libpng.git
-    GIT_TAG v1.6.54
+    GIT_TAG 02f2b4f4699f0ef9111a6534f093b53732df4452 # v1.6.54
     OVERRIDE_FIND_PACKAGE
 )
 FetchContent_MakeAvailable(PNG)
@@ -36,7 +36,7 @@ set(INSTALL_CMAKE_PACKAGE_MODULE OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     Ogg
     GIT_REPOSITORY https://github.com/xiph/ogg.git
-    GIT_TAG v1.3.6
+    GIT_TAG be05b13e98b048f0b5a0f5fa8ce514d56db5f822 # v1.3.6
     OVERRIDE_FIND_PACKAGE
 )
 FetchContent_MakeAvailable(Ogg)
@@ -44,7 +44,7 @@ FetchContent_MakeAvailable(Ogg)
 FetchContent_Declare(
     Vorbis
     GIT_REPOSITORY https://github.com/xiph/vorbis.git
-    GIT_TAG v1.3.7
+    GIT_TAG 0657aee69dec8508a0011f47f3b69d7538e9d262 # v1.3.7
 )
 FetchContent_MakeAvailable(Vorbis)
 if(NOT TARGET Vorbis::vorbis)
@@ -58,7 +58,7 @@ set(OPUS_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     Opus
     GIT_REPOSITORY https://github.com/xiph/opus.git
-    GIT_TAG v1.5.2
+    GIT_TAG ddbe48383984d56acd9e1ab6a090c54ca6b735a6 # v1.5.2
 )
 FetchContent_MakeAvailable(Opus)
 if(NOT TARGET Opus::opus)
@@ -77,7 +77,7 @@ target_include_directories(opus INTERFACE
 FetchContent_Declare(
     OpusFile
     GIT_REPOSITORY https://github.com/xiph/opusfile.git
-    GIT_TAG v0.12
+    GIT_TAG a55c164e9891a9326188b7d4d216ec9a88373739 # v0.12
     SOURCE_SUBDIR cmake-not-available
 )
 FetchContent_MakeAvailable(OpusFile)

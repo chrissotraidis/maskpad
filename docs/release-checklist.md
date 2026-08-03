@@ -20,5 +20,6 @@
 - [ ] complete third-party notices and legal review
 - [ ] explicit approval for signing or distribution
 
-Publishing, signing, TestFlight, App Store submission, and upstream changes
-are out of scope until separately authorized.
+Binary publishing, signing, TestFlight, App Store submission, and upstream
+changes are out of scope until separately authorized. Public source visibility
+does not authorize a binary distribution.

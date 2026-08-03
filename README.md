@@ -93,6 +93,10 @@ See [`docs/building.md`](docs/building.md) for installation, signing,
 packaging, and audit commands. Before sharing a build, follow the
 [`release checklist`](docs/release-checklist.md).
 
+These commands document the maintained build process; they are not a license
+grant. Read [`RIGHTS_AND_LICENSES.md`](RIGHTS_AND_LICENSES.md) before copying,
+modifying, or distributing MaskPad-owned work.
+
 ## First launch
 
 MaskPad never downloads or bundles game data.
