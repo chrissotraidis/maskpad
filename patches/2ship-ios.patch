@@ -44,7 +44,7 @@ index e3c1ac7b5..c88e3fb7b 100644
 
  set_property(TARGET 2ship PROPERTY APPIMAGE_DESKTOP_FILE_TERMINAL YES)
 diff --git a/mm/2s2h/BenGui/BenMenu.cpp b/mm/2s2h/BenGui/BenMenu.cpp
-index 1a5ad515b..2f2420808 100644
+index 1a5ad515b..6099c515f 100644
 --- a/mm/2s2h/BenGui/BenMenu.cpp
 +++ b/mm/2s2h/BenGui/BenMenu.cpp
 @@ -17,6 +17,9 @@
@@ -57,7 +57,29 @@ index 1a5ad515b..2f2420808 100644
 
  extern "C" {
  #include "z64.h"
-@@ -576,6 +579,71 @@ void BenMenu::AddSettings() {
+@@ -482,9 +485,11 @@ void BenMenu::AddSettings() {
+     path.column = SECTION_COLUMN_1;
+     AddSidebarEntry("Settings", "Graphics", 3);
+     AddWidget(path, "Graphics Options", WIDGET_SEPARATOR_TEXT);
++#ifndef __IOS__
+     AddWidget(path, "Toggle Fullscreen", WIDGET_BUTTON)
+         .Callback([](WidgetInfo& info) { Ship::Context::GetInstance()->GetWindow()->ToggleFullscreen(); })
+         .Options(ButtonOptions().Tooltip("Toggles Fullscreen On/Off."));
++#endif
+     AddWidget(path, "Internal Resolution: %.0f%%", WIDGET_CVAR_SLIDER_FLOAT)
+         .CVar(CVAR_INTERNAL_RESOLUTION)
+         .Callback([](WidgetInfo& info) {
+@@ -547,7 +552,9 @@ void BenMenu::AddSettings() {
+     AddWidget(path, "Match Refresh Rate", WIDGET_CVAR_CHECKBOX)
+         .CVar("gMatchRefreshRate")
+         .Options(CheckboxOptions().Tooltip("Matches interpolation value to the refresh rate of your display."));
++#ifndef __IOS__
+     AddWidget(path, "Renderer API (Needs reload)", WIDGET_VIDEO_BACKEND);
++#endif
+     AddWidget(path, "Enable Vsync", WIDGET_CVAR_CHECKBOX)
+         .CVar(CVAR_VSYNC_ENABLED)
+         .PreFunc([](WidgetInfo& info) { info.isHidden = mBenMenu->disabledMap.at(DISABLE_FOR_NO_VSYNC).active; })
+@@ -576,6 +583,71 @@ void BenMenu::AddSettings() {
 
      path.sidebarName = "Controls";
      AddSidebarEntry("Settings", "Controls", 1);
@@ -129,8 +151,51 @@ index 1a5ad515b..2f2420808 100644
      AddWidget(path, "Popout Bindings Window", WIDGET_WINDOW_BUTTON)
          .CVar("gWindows.BenInputEditor")
          .WindowName("2S2H Input Editor")
+diff --git a/mm/2s2h/BenGui/Menu.cpp b/mm/2s2h/BenGui/Menu.cpp
+index f63d4589b..09e2192ca 100644
+--- a/mm/2s2h/BenGui/Menu.cpp
++++ b/mm/2s2h/BenGui/Menu.cpp
+@@ -593,6 +593,11 @@ void Menu::DrawElement() {
+     ImGuiStyle& style = ImGui::GetStyle();
+     windowHeight = window->WorkRect.GetHeight();
+     windowWidth = window->WorkRect.GetWidth();
++#ifdef __IOS__
++    const bool compactMenu = windowHeight < 560.0f;
++#else
++    const bool compactMenu = false;
++#endif
+
+     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 8.0f));
+     const char* headerCvar = "gSettings.Menu.ActiveHeader";
+@@ -604,7 +609,7 @@ void Menu::DrawElement() {
+     float centerX = pos.x + windowWidth / 2 - (style.ItemSpacing.x * (menuEntries.size() + 1));
+     std::vector<ImVec2> headerSizes;
+     float headerWidth = style.ItemSpacing.x;
+-    bool headerSearch = !CVarGetInteger("gSettings.Menu.SidebarSearch", 0);
++    bool headerSearch = !compactMenu && !CVarGetInteger("gSettings.Menu.SidebarSearch", 0);
+     if (headerSearch) {
+         headerWidth += 200.0f + style.ItemSpacing.x + style.FramePadding.x;
+     }
+@@ -764,7 +769,7 @@ void Menu::DrawElement() {
+     float sectionHeight = menuSize.y - headerHeight - 4 - style.ItemSpacing.y * 2;
+     float columnHeight = sectionHeight - style.ItemSpacing.y * 4;
+     ImGui::SetNextWindowPos(pos + style.ItemSpacing * 2);
+-    float sidebarWidth = 200 - style.ItemSpacing.x;
++    float sidebarWidth = (compactMenu ? 180.0f : 200.0f) - style.ItemSpacing.x;
+
+     const char* sidebarCvar = menuEntries.at(headerIndex).sidebarCvar;
+
+@@ -812,7 +817,7 @@ void Menu::DrawElement() {
+     std::string sectionMenuId = sectionIndex + " Settings";
+     int columns = sidebar->at(sectionIndex).columnCount;
+     size_t columnFuncs = sidebar->at(sectionIndex).columnWidgets.size();
+-    if (windowWidth < 800) {
++    if (compactMenu || windowWidth < 800) {
+         columns = 1;
+     }
+     float columnWidth = (sectionWidth - style.ItemSpacing.x * columns) / columns;
 diff --git a/mm/2s2h/BenPort.cpp b/mm/2s2h/BenPort.cpp
-index c9a5ad156..24ca83cbf 100644
+index c9a5ad156..f0bceac9c 100644
 --- a/mm/2s2h/BenPort.cpp
 +++ b/mm/2s2h/BenPort.cpp
 @@ -64,6 +64,11 @@ CrowdControl* CrowdControl::Instance;
@@ -182,12 +247,19 @@ index c9a5ad156..24ca83cbf 100644
                  exit(1);
              }
              extract.CallZapd(installPath, Ship::Context::GetAppDirectoryPath(appShortName));
-@@ -708,6 +731,25 @@ extern "C" void InitOTR() {
+@@ -708,6 +731,32 @@ extern "C" void InitOTR() {
  #endif
 
      OTRGlobals::Instance = new OTRGlobals();
 +#ifdef __IOS__
 +    CVarSetInteger(CVAR_IMGUI_CONTROLLER_NAV, 1);
++    CVarRegisterInteger("gSettings.MaskPad.PhonePerformanceDefaultsV1", 0);
++    if (Ship::Context::GetInstance()->GetWindow()->GetHeight() < 560 &&
++        !CVarGetInteger("gSettings.MaskPad.PhonePerformanceDefaultsV1", 0)) {
++        CVarSetInteger("gInterpolationFPS", 20);
++        CVarSetInteger("gSettings.MaskPad.PhonePerformanceDefaultsV1", 1);
++        CVarSave();
++    }
 +    CVarRegisterInteger("gSettings.MaskPad.TouchControls", 1);
 +    MaskPad_SetTouchControlsEnabled(
 +        CVarGetInteger("gSettings.MaskPad.TouchControls", 1));
