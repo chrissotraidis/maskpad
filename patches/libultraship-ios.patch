@@ -1,3 +1,51 @@
+diff --git a/cmake/dependencies/common.cmake b/cmake/dependencies/common.cmake
+index 8f5813ac..0dbf8c3a 100644
+--- a/cmake/dependencies/common.cmake
++++ b/cmake/dependencies/common.cmake
+@@ -9,7 +9,7 @@ set(imgui_apply_patch_command ${CMAKE_COMMAND} -Dpatch_file=${imgui_fixes_and_co
+ FetchContent_Declare(
+     ImGui
+     GIT_REPOSITORY https://github.com/ocornut/imgui.git
+-    GIT_TAG v1.91.9b-docking
++    GIT_TAG 4806a1924ff6181180bf5e4b8b79ab4394118875 # v1.91.9b-docking
+     PATCH_COMMAND ${imgui_apply_patch_command}
+ )
+ FetchContent_MakeAvailable(ImGui)
+@@ -43,7 +43,7 @@ if(INCLUDE_MPQ_SUPPORT)
+     FetchContent_Declare(
+         StormLib
+         GIT_REPOSITORY https://github.com/ladislav-zezula/StormLib.git
+-        GIT_TAG v9.25
++        GIT_TAG 28c9b4be3f23c6b3a5ff55cacac7dbe5b9cdc4fc # v9.25
+         PATCH_COMMAND ${stormlib_apply_patch_command}
+     )
+     FetchContent_MakeAvailable(StormLib)
+@@ -53,4 +53,9 @@ endif()
+ #=================== STB ===================
+ set(STB_DIR ${CMAKE_BINARY_DIR}/_deps/stb)
+-file(DOWNLOAD "https://github.com/nothings/stb/raw/0bc88af4de5fb022db643c2d8e549a0927749354/stb_image.h" "${STB_DIR}/stb_image.h")
++file(
++    DOWNLOAD
++        "https://github.com/nothings/stb/raw/0bc88af4de5fb022db643c2d8e549a0927749354/stb_image.h"
++        "${STB_DIR}/stb_image.h"
++    EXPECTED_HASH SHA256=c54b15a689e6a1f32c75e2ec23afa442e3e0e37e894b73c1974d08679b20dd5c
++)
+ file(WRITE "${STB_DIR}/stb_impl.c" "#define STB_IMAGE_IMPLEMENTATION\n#include \"stb_image.h\"")
+@@ -97,6 +102,6 @@ endif()
+ FetchContent_Declare(
+     ThreadPool
+     GIT_REPOSITORY https://github.com/bshoshany/thread-pool.git
+-    GIT_TAG v4.1.0
++    GIT_TAG 097aa718f25d44315cadb80b407144ad455ee4f9 # v4.1.0
+ )
+ FetchContent_MakeAvailable(ThreadPool)
+@@ -110,4 +115,4 @@ FetchContent_Declare(
+     GIT_REPOSITORY https://github.com/KiritoDv/prism-processor.git
+     GIT_TAG bbcbc7e3f890a5806b579361e7aa0336acd547e7
+ )
+-FetchContent_MakeAvailable(prism)
+\ No newline at end of file
++FetchContent_MakeAvailable(prism)
 diff --git a/cmake/dependencies/ios.cmake b/cmake/dependencies/ios.cmake
 index 2ed98be1..aad5c586 100644
 --- a/cmake/dependencies/ios.cmake
@@ -7,7 +55,7 @@ index 2ed98be1..aad5c586 100644
          SDL2
          GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
 -        GIT_TAG release-2.28.1
-+        GIT_TAG release-2.32.10
++        GIT_TAG 5d249570393f7a37e037abf22cd6012a4cc56a71 # release-2.32.10
          OVERRIDE_FIND_PACKAGE
      )
      FetchContent_MakeAvailable(SDL2)
@@ -16,7 +64,7 @@ index 2ed98be1..aad5c586 100644
          nlohmann_json
          GIT_REPOSITORY https://github.com/nlohmann/json.git
 -        GIT_TAG v3.11.3
-+        GIT_TAG v3.12.0
++        GIT_TAG 55f93686c01528224f448c19128836e7df245f72 # v3.12.0
          OVERRIDE_FIND_PACKAGE
      )
      FetchContent_MakeAvailable(nlohmann_json)
@@ -25,7 +73,7 @@ index 2ed98be1..aad5c586 100644
          tinyxml2
          GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git
 -        GIT_TAG 10.0.0
-+        GIT_TAG 11.0.0
++        GIT_TAG 9148bdf719e997d1f474be6bcc7943881046dba1 # 11.0.0
          OVERRIDE_FIND_PACKAGE
      )
      FetchContent_MakeAvailable(tinyxml2)
@@ -34,7 +82,7 @@ index 2ed98be1..aad5c586 100644
          spdlog
          GIT_REPOSITORY https://github.com/gabime/spdlog.git
 -        GIT_TAG v1.14.1
-+        GIT_TAG v1.16.0
++        GIT_TAG 486b55554f11c9cccc913e11a87085b2a91f706f # v1.16.0
          OVERRIDE_FIND_PACKAGE
      )
      FetchContent_MakeAvailable(spdlog)
@@ -43,10 +91,19 @@ index 2ed98be1..aad5c586 100644
          libzip
          GIT_REPOSITORY https://github.com/nih-at/libzip.git
 -        GIT_TAG v1.10.1
-+        GIT_TAG v1.11.4
++        GIT_TAG 6f8a0cdd24a0dc6cce9dac4a7679da784ab124ea # v1.11.4
          OVERRIDE_FIND_PACKAGE
      )
      FetchContent_MakeAvailable(libzip)
+@@ -73,7 +73,7 @@ endif()
+ FetchContent_Declare(
+     metalcpp
+     GIT_REPOSITORY https://github.com/briaguya-ai/single-header-metal-cpp.git
+-    GIT_TAG macOS13_iOS16
++    GIT_TAG 7bf710a725b386f6db869f8a2b48a56be29b6233 # macOS13_iOS16
+ )
+ FetchContent_MakeAvailable(metalcpp)
+ list(APPEND ADDITIONAL_LIB_INCLUDES ${metalcpp_SOURCE_DIR})
 diff --git a/cmake/dependencies/mac.cmake b/cmake/dependencies/mac.cmake
 index 1a1694d3..31479f12 100644
 --- a/cmake/dependencies/mac.cmake
@@ -56,10 +113,19 @@ index 1a1694d3..31479f12 100644
          spdlog
          GIT_REPOSITORY https://github.com/gabime/spdlog.git
 -        GIT_TAG v1.14.1
-+        GIT_TAG v1.15.3
++        GIT_TAG 6fa36017cfd5731d617e1a934f0e5ea9c4445b13 # v1.15.3
          OVERRIDE_FIND_PACKAGE
      )
      FetchContent_MakeAvailable(spdlog)
+@@ -18,7 +18,7 @@ endif()
+ FetchContent_Declare(
+     metalcpp
+     GIT_REPOSITORY https://github.com/briaguya-ai/single-header-metal-cpp.git
+-    GIT_TAG macOS13_iOS16
++    GIT_TAG 7bf710a725b386f6db869f8a2b48a56be29b6233 # macOS13_iOS16
+ )
+ FetchContent_MakeAvailable(metalcpp)
+ list(APPEND ADDITIONAL_LIB_INCLUDES ${metalcpp_SOURCE_DIR})
 diff --git a/cmake/ios-toolchain-populate.cmake b/cmake/ios-toolchain-populate.cmake
 index eb93fea4..644bcc26 100644
 --- a/cmake/ios-toolchain-populate.cmake

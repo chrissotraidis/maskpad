@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -37,7 +37,7 @@ jobs:
     needs: repository-safety
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install host archive-build dependencies
         run: >-
@@ -45,7 +45,7 @@ jobs:
           libzip tinyxml2 libogg libvorbis opus opusfile sdl2_net
 
       - name: Cache host and iOS dependencies
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             build-host/_deps
@@ -66,3 +66,59 @@ jobs:
         run: |
           scripts/package-unsigned-ipa.sh
           scripts/verify-release.sh artifacts/MaskPad-0.1.0-unsigned.ipa
+
+  simulator-tests:
+    name: ROM-free Simulator UI
+    runs-on: macos-15
+    timeout-minutes: 120
+    needs: repository-safety
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install host archive-build dependencies
+        run: >-
+          brew install cmake ninja pkgconf sdl2 glew nlohmann-json libpng
+          libzip tinyxml2 libogg libvorbis opus opusfile sdl2_net
+
+      - name: Cache host and Simulator dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            build-host/_deps
+            build-ios-simulator/_deps
+          key: maskpad-simulator-${{ runner.os }}-${{ hashFiles('patches/**', 'port/**', 'scripts/*.sh') }}
+
+      - name: Reconstruct pinned source
+        run: |
+          scripts/clone-sources.sh
+          scripts/apply-patches.sh
+
+      - name: Select an available iPad Simulator
+        id: simulator
+        run: |
+          udid="$(python3 - <<'PY'
+          import json
+          import subprocess
+
+          devices = json.loads(
+              subprocess.check_output(
+                  ["xcrun", "simctl", "list", "devices", "available", "-j"],
+                  text=True,
+              )
+          )["devices"]
+          candidates = [
+              device["udid"]
+              for runtime in devices.values()
+              for device in runtime
+              if device.get("isAvailable") and device["name"].startswith("iPad")
+          ]
+          if not candidates:
+              raise SystemExit("No available iPad Simulator found")
+          print(candidates[0])
+          PY
+          )"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Run ROM-free touch and layout tests
+        run: scripts/test-ios-ui.sh "${{ steps.simulator.outputs.udid }}"

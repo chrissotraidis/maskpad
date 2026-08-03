@@ -46,6 +46,8 @@ Files-visible Documents container during an update:
 2. Re-sign the newer IPA using the same account and bundle identifier.
 3. Install it in place instead of deleting the existing app first.
 
-Physical-device installation, signature renewal, and in-place data
-preservation remain unverified MaskPad gates. A sideload tool can still
-replace an app container, so keep backups of saves and generated data.
+Signed installation and an in-place update have preserved app data on the
+tested physical iPad. Personal-sideload installation, signature renewal, and
+container preservation through tools such as AltStore Classic remain
+unverified MaskPad gates. A sideload tool can still replace an app container,
+so keep backups of saves and generated data.

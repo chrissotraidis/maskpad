@@ -30,6 +30,10 @@ The clone is detached at:
 Push URLs are disabled in every upstream checkout. The checkout is disposable:
 the maintained inputs are `patches/`, `port/`, and `ios/`.
 
+The iOS and host `FetchContent` inputs used by the maintained build are pinned
+to full Git commit IDs. The standalone `stb_image.h` download is pinned by
+commit and verified with SHA-256 before CMake accepts it.
+
 ## Simulator
 
 ```sh
