@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="${1:-$ROOT/build-ios-device/mm/Release-iphoneos/MaskPad.app}"
-OUTPUT="${2:-$ROOT/artifacts/MaskPad-0.1.0-unsigned.ipa}"
+OUTPUT="${2:-$ROOT/artifacts/MaskPad-0.1.1-unsigned.ipa}"
 
 if [[ "$APP" != /* ]]; then
     APP="$ROOT/$APP"

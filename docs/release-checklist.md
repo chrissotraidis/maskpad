@@ -19,11 +19,11 @@
 - [x] approved current-build README captures contain no private local details
 - [x] project rights notice and discovered third-party license files are
       included in the unsigned IPA
-- [x] explicit maintainer approval for the unsigned, ROM-free `v0.1.0`
+- [x] explicit maintainer approval for the unsigned, ROM-free `v0.1.1`
       GitHub Release
 - [ ] written legal review before paid access, commercial binary licensing,
       or official-store distribution
 
-The `v0.1.0` authorization is limited to the unsigned GitHub Release. Signing,
+The `v0.1.1` authorization is limited to the unsigned GitHub Release. Signing,
 TestFlight, App Store submission, paid/commercial distribution, and upstream
 changes remain out of scope until separately authorized.
