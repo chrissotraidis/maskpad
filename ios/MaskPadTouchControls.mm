@@ -1429,12 +1429,15 @@ void MaskPad_ShowMissingRomMessage(void) {
 
         UIAlertController* alert = [UIAlertController
             alertControllerWithTitle:@"Add your Majora's Mask ROM"
-                             message:@"In Files, open On My iPhone or iPad → MaskPad. Copy one supported, "
-                                     @".z64, .n64, or .v64 ROM there, then reopen MaskPad. Your ROM and "
-                                     @"generated game archive stay on this device."
+                             message:@"The Files-visible MaskPad location is this app's Documents folder.\n\n"
+                                     @"Normal install: open Files → On My iPhone or iPad → MaskPad, then "
+                                     @"copy one supported .z64, .n64, or .v64 ROM into Documents.\n\n"
+                                     @"LiveContainer: open MaskPad's application container and put the ROM "
+                                     @"in Documents. Do not use SystemData.\n\n"
+                                     @"Return to MaskPad and select Rescan."
                       preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction
-                             actionWithTitle:@"OK"
+                             actionWithTitle:@"Rescan"
                                        style:UIAlertActionStyleDefault
                                      handler:^(UIAlertAction* action) {
                                          (void)action;

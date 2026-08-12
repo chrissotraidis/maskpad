@@ -102,10 +102,18 @@ modifying, or distributing MaskPad-owned work.
 MaskPad never downloads or bundles game data.
 
 1. Launch MaskPad once so iOS creates its Files-visible folder.
-2. Open **Files → On My iPhone/iPad → MaskPad**.
-3. Copy one supported `.z64`, `.n64`, or `.v64` Majora's Mask ROM there.
-4. Reopen MaskPad and leave it open while local extraction runs.
+2. Open **Files → On My iPhone/iPad → MaskPad**. This Files-visible MaskPad
+   location is the app's **Documents** folder.
+3. Copy one supported `.z64`, `.n64`, or `.v64` Majora's Mask ROM into
+   **Documents**.
+4. Return to MaskPad and select **Rescan**. Leave it open while local extraction
+   runs.
 5. Later launches load the generated `mm.o2r` directly.
+
+When using LiveContainer, open MaskPad's application container and put the ROM
+in its **Documents** folder. Do not put it in **SystemData**. Return to MaskPad
+and select **Rescan**. This describes the expected file location and does not
+claim complete LiveContainer compatibility.
 
 The ROM and generated archive stay inside the app's Documents container. They
 are ignored by Git and rejected by the repository and package audits.
@@ -127,6 +135,10 @@ model instead of approximating it from screenshots:
   overlay, or backgrounding releases every held input.
 - **Fallback:** Legacy Fixed Touch Controls keeps the non-customizable UIKit
   presentation.
+
+For controller gyro aiming, first add the controller's motion sensor under
+**Settings → Controls → Gyro**. Majora's Mask also requires **Enhancements →
+Camera → First Person → Gyro Aiming** to be enabled.
 
 | Touch control | 2S2H binding |
 |---|---|

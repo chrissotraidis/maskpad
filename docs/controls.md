@@ -50,6 +50,20 @@ slider. Opacity changes only presentation: control frames, gesture recognizers,
 bindings, and saved layouts remain unchanged. The layout editor temporarily
 shows visible controls at full opacity.
 
+## Controller gyro aiming
+
+The controller's motion sensor and Majora's Mask's first-person gyro behavior
+are configured separately:
+
+1. Open **Settings → Controls → Gyro** and add the controller's motion sensor.
+2. Enable **Enhancements → Camera → First Person → Gyro Aiming**.
+
+The second option is the gameplay gate
+`gEnhancements.Camera.FirstPerson.GyroEnabled`; adding a gyro mapping does not
+silently change that preference. The mapping UI previews SDL gyro motion before
+gameplay consumes it. Actual wired DualShock 4 sensor input still requires a
+physical iPad/controller test.
+
 ## Native HUD behavior
 
 During gameplay the transparent A/B/C touch targets remain interactive while
