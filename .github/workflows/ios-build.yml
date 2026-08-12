@@ -65,7 +65,7 @@ jobs:
       - name: Package and audit unsigned IPA
         run: |
           scripts/package-unsigned-ipa.sh
-          scripts/verify-release.sh artifacts/MaskPad-0.1.0-unsigned.ipa
+          scripts/verify-release.sh artifacts/MaskPad-0.1.1-unsigned.ipa
 
   simulator-tests:
     name: ROM-free Simulator UI

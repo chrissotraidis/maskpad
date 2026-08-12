@@ -78,7 +78,7 @@ This script refuses to run when a supplied Simulator lacks its local
 scripts/configure-ios.sh --device
 scripts/build-ios.sh --device
 scripts/package-unsigned-ipa.sh
-scripts/verify-release.sh artifacts/MaskPad-0.1.0-unsigned.ipa
+scripts/verify-release.sh artifacts/MaskPad-0.1.1-unsigned.ipa
 ```
 
 The IPA is intentionally unsigned. Signing requires an Apple development
