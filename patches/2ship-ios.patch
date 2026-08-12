@@ -43,6 +43,21 @@ index e3c1ac7b5..c88e3fb7b 100644
  add_subdirectory(mm)
 
  set_property(TARGET 2ship PROPERTY APPIMAGE_DESKTOP_FILE_TERMINAL YES)
+diff --git a/mm/2s2h/BenGui/BenInputEditorWindow.cpp b/mm/2s2h/BenGui/BenInputEditorWindow.cpp
+index 5281c4061..cc43618cf 100644
+--- a/mm/2s2h/BenGui/BenInputEditorWindow.cpp
++++ b/mm/2s2h/BenGui/BenInputEditorWindow.cpp
+@@ -1123,6 +1123,10 @@ void BenInputEditorWindow::DrawAddGyroMappingButton(uint8_t port) {
+ }
+
+ void BenInputEditorWindow::DrawGyroSection(uint8_t port) {
++#ifdef __IOS__
++    ImGui::TextWrapped(
++        "For Majora's Mask, also enable Enhancements > Camera > First Person > Gyro Aiming.");
++#endif
+     auto mapping =
+         Ship::Context::GetInstance()->GetControlDeck()->GetControllerByPort(port)->GetGyro()->GetGyroMapping();
+     if (mapping != nullptr) {
 diff --git a/mm/2s2h/BenGui/BenMenu.cpp b/mm/2s2h/BenGui/BenMenu.cpp
 index 1a5ad515b..6099c515f 100644
 --- a/mm/2s2h/BenGui/BenMenu.cpp
@@ -225,7 +240,7 @@ index c9a5ad156..f0bceac9c 100644
  #ifdef __SWITCH__
      Ship::Switch::Init(Ship::PreInitPhase);
  #elif defined(__WIIU__)
-@@ -694,10 +707,20 @@ extern "C" void InitOTR() {
+@@ -694,10 +707,22 @@ extern "C" void InitOTR() {
              exit(1);
          }
 
@@ -238,16 +253,18 @@ index c9a5ad156..f0bceac9c 100644
 +#endif
 +        if (shouldGenerate) {
              Extractor extract;
-             if (!extract.Run(Ship::Context::GetAppDirectoryPath(appShortName))) {
 +#ifdef __IOS__
++            while (!extract.Run(Ship::Context::GetAppDirectoryPath(appShortName))) {
 +                MaskPad_ShowMissingRomMessage();
++            }
 +#else
+             if (!extract.Run(Ship::Context::GetAppDirectoryPath(appShortName))) {
                  Extractor::ShowErrorBox("Error", "An error occurred, no O2R file was generated. Exiting...");
-+#endif
                  exit(1);
              }
++#endif
              extract.CallZapd(installPath, Ship::Context::GetAppDirectoryPath(appShortName));
-@@ -708,6 +731,32 @@ extern "C" void InitOTR() {
+@@ -708,6 +733,32 @@ extern "C" void InitOTR() {
  #endif
 
      OTRGlobals::Instance = new OTRGlobals();
