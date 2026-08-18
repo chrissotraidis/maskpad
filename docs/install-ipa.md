@@ -8,20 +8,20 @@ The IPA does not include Majora's Mask, a ROM, or generated game data.
 
 ## Download and verify
 
-Download both files from the current [`v0.1.1` GitHub
-release](https://github.com/chrissotraidis/maskpad/releases/tag/v0.1.1):
+Download both files from the current [`v0.1.2` GitHub
+release](https://github.com/chrissotraidis/maskpad/releases/tag/v0.1.2):
 
-- `MaskPad-0.1.1-unsigned.ipa`
-- `MaskPad-0.1.1-unsigned.ipa.sha256`
+- `MaskPad-0.1.2-unsigned.ipa`
+- `MaskPad-0.1.2-unsigned.ipa.sha256`
 
 From the directory containing both downloads, verify the package before
 installing it:
 
 ```sh
-shasum -a 256 -c MaskPad-0.1.1-unsigned.ipa.sha256
+shasum -a 256 -c MaskPad-0.1.2-unsigned.ipa.sha256
 ```
 
-The command must report `MaskPad-0.1.1-unsigned.ipa: OK`.
+The command must report `MaskPad-0.1.2-unsigned.ipa: OK`.
 
 ## Build and package
 
@@ -33,10 +33,10 @@ scripts/apply-patches.sh
 scripts/configure-ios.sh --device
 scripts/build-ios.sh --device
 scripts/package-unsigned-ipa.sh
-scripts/verify-release.sh artifacts/MaskPad-0.1.1-unsigned.ipa
+scripts/verify-release.sh artifacts/MaskPad-0.1.2-unsigned.ipa
 ```
 
-The result is `artifacts/MaskPad-0.1.1-unsigned.ipa`. Verify its SHA-256
+The result is `artifacts/MaskPad-0.1.2-unsigned.ipa`. Verify its SHA-256
 against the value printed by the packaging command.
 
 ## Re-sign and install

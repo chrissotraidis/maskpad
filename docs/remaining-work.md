@@ -91,6 +91,9 @@ after their exact gate is observed.
   captures and selected the sword-combat image as the hero.
 - Published the audited, ROM-free `MaskPad-0.1.0-unsigned.ipa` and its SHA-256
   file in the `v0.1.0` GitHub Release with explicit maintainer approval.
+- Reconciled libultraship SDL2 controller handles across missed removal,
+  remap, foreground, and bounded active checks while preserving valid port
+  ownership; the deterministic stale-handle/slot regression passes.
 
 All in-scope Simulator implementation gates are closed.
 
@@ -109,8 +112,10 @@ and save data preserved. Touch controls and speaker audio work there. Reported
 area-load frame losses and occasional music skips remain unresolved.
 
 - Signed installation and in-place update on physical iPhone.
-- Extended physical touch ergonomics, Pencil/trackpad behavior, controller
-  connect/reconnect, rumble, and motion.
+- Extended physical touch ergonomics and Pencil/trackpad behavior.
+- Physical Bluetooth and wired disconnect/reconnect, natural sleep/wake,
+  held-input release, full mapping, rumble/motion, touch-overlay response, and
+  two-controller port preservation.
 - Headphone, Bluetooth, interruption, and route-change audio.
 - Performance, memory pressure, thermals, and suspend/resume endurance.
 - Physical screenshot-editor pause/resume acceptance with the inactive-loop

@@ -4,6 +4,7 @@
 
 ```sh
 scripts/check-repo-safety.sh
+scripts/test-controller-reconnect.sh
 scripts/verify-release.sh
 bash -n scripts/*.sh
 ```
@@ -13,6 +14,31 @@ blob for ROMs, derived game data, build products, packages, signing material,
 large accidental files, and likely credentials. The release gate additionally
 asserts pins, reverse-applies patches, compares overlays, and can recursively
 inspect an app or IPA.
+
+The controller regression compiles the patched SDL2
+`ConnectedPhysicalDeviceManager` against a fake device backend. It covers a
+missed removal while button/axis input is held, neutral input after stale
+ownership is removed, sole-controller port-1 reclamation, an additional
+controller taking port 2, surviving-port stability, manual port-filter
+preservation, and foreground reconciliation.
+
+## Controller lifecycle evidence on 2026-08-18
+
+- Backend: SDL2 through libultraship's `ConnectedPhysicalDeviceManager`, with
+  instance-ID handles and per-port ignore filters; no Apple GameController
+  observer or separate MaskPad controller layer owns gameplay input.
+- Defect: the pinned manager cleared and reopened its map only after add/remove
+  events, did not close prior handles or validate attachment/identity, and had
+  no startup, remap, foreground, or active reconciliation.
+- Repair: keep valid handles and port filters, close stale handles, assign new
+  devices to the first free port, reject invalid handles at every gameplay
+  lookup, and reconcile on startup, SDL controller events, foreground resume,
+  and a one-second active check.
+- Automated proof: focused fake-SDL regression passed; arm64 Simulator Release
+  built; the two-test ROM-free UI/lifecycle suite passed on an iPad mini
+  (A17 Pro), iOS 26.5 Simulator.
+- Hardware boundary: build/install/log evidence is not physical Bluetooth,
+  wired, natural-sleep, mapping, rumble/motion, or two-controller acceptance.
 
 The opt-in, ROM-free Simulator UI suite reconstructs the test target and runs
 the same two deterministic tests on every supplied device:

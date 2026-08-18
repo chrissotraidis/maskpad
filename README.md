@@ -39,15 +39,16 @@ relicense third-party projects or game material.
 |---|---|---|
 | Local Simulator build | **Verified** | Best for development, import-flow checks, and UI testing. |
 | Local iPad build | **Verified locally** | Configure your own Apple development team and bundle identifier before installation. |
-| Unsigned `.ipa` | **Published** | Download the current ROM-free [`v0.1.1` IPA](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.1/MaskPad-0.1.1-unsigned.ipa), verify its adjacent SHA-256 file, then re-sign it for your own device. |
+| Unsigned `.ipa` | **Published** | Download the current ROM-free [`v0.1.2` IPA](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.2/MaskPad-0.1.2-unsigned.ipa), verify its adjacent SHA-256 file, then re-sign it for your own device. |
 | App Store / TestFlight | **Not announced** | No listing or public TestFlight currently exists. |
 
 The current source has been exercised in iPhone and iPad Simulators and on a
 12.9-inch iPad Pro (6th generation) running iPadOS 26.5.2. ROM import, local
 archive loading, gameplay, touch input, save loading, signing, and in-place
 updates have been exercised on that hardware.
-Area-load frame pacing remains under active investigation; controller reconnect,
-rumble, motion, audio-route coverage, and longer thermal tests are still open.
+Area-load frame pacing remains under active investigation. Physical Bluetooth,
+wired, and natural-sleep controller acceptance, rumble, motion, audio-route
+coverage, and longer thermal tests are still open.
 
 ## Get started
 
@@ -139,6 +140,16 @@ model instead of approximating it from screenshots:
 For controller gyro aiming, first add the controller's motion sensor under
 **Settings → Controls → Gyro**. Majora's Mask also requires **Enhancements →
 Camera → First Person → Gyro Aiming** to be enabled.
+
+MaskPad keeps 2S2H/libultraship's SDL2 controller manager and per-port mapping
+model. It now reconciles SDL instance IDs and handles at startup, controller
+add/remove/remap events, foreground resume, and a bounded active check. Valid
+controllers keep their port; stale handles are closed and cannot be polled;
+the sole returning controller reclaims port 1; and additional controllers take
+the next free port without moving port 1. The deterministic regression covers
+missed removal with held button/axis state and foreground recovery. Physical
+Bluetooth, wired, natural-sleep, full-mapping, and two-controller acceptance
+remain hardware gates.
 
 | Touch control | 2S2H binding |
 |---|---|
@@ -243,13 +254,13 @@ Create and audit the unsigned package with:
 
 ```sh
 scripts/package-unsigned-ipa.sh
-scripts/verify-release.sh artifacts/MaskPad-0.1.1-unsigned.ipa
+scripts/verify-release.sh artifacts/MaskPad-0.1.2-unsigned.ipa
 ```
 
-Alternatively, download the current audited [`v0.1.1` unsigned
-IPA](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.1/MaskPad-0.1.1-unsigned.ipa)
+Alternatively, download the current audited [`v0.1.2` unsigned
+IPA](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.2/MaskPad-0.1.2-unsigned.ipa)
 and its [SHA-256
-file](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.1/MaskPad-0.1.1-unsigned.ipa.sha256).
+file](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.2/MaskPad-0.1.2-unsigned.ipa.sha256).
 See the [installation guide](docs/install-ipa.md) before sideloading it.
 
 The IPA contains the project rights notice and discovered third-party license
@@ -261,10 +272,10 @@ generated `mm.o2r`, and must be re-signed before standard-device installation.
 <details>
 <summary><strong>Where is the IPA?</strong></summary>
 
-Download the current ROM-free [`v0.1.1` unsigned
-IPA](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.1/MaskPad-0.1.1-unsigned.ipa)
+Download the current ROM-free [`v0.1.2` unsigned
+IPA](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.2/MaskPad-0.1.2-unsigned.ipa)
 and its [SHA-256
-file](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.1/MaskPad-0.1.1-unsigned.ipa.sha256),
+file](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.2/MaskPad-0.1.2-unsigned.ipa.sha256),
 or build the same package locally with the commands above. It must be
 re-signed using your own Apple account. See
 [`docs/install-ipa.md`](docs/install-ipa.md).
@@ -295,9 +306,10 @@ Yes. The persistent `•••` button keeps the menu reachable. Open
 <details>
 <summary><strong>Does it support controllers?</strong></summary>
 
-2S2H's SDL controller path is compiled into the app. Physical controller
-gameplay, reconnect, rumble, and motion remain device-specific verification
-gates.
+2S2H's SDL2 controller path is compiled into the app. Automated stale-handle,
+slot, held-input, and foreground reconciliation tests pass. Physical
+Bluetooth, wired, natural-sleep, full-mapping, rumble, motion, and
+two-controller checks remain device-specific verification gates.
 </details>
 
 <details>

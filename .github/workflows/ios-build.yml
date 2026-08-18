@@ -57,6 +57,9 @@ jobs:
           scripts/clone-sources.sh
           scripts/apply-patches.sh
 
+      - name: Test SDL2 controller reconciliation
+        run: scripts/test-controller-reconnect.sh
+
       - name: Reproduce unsigned arm64 iPhoneOS app
         run: |
           scripts/configure-ios.sh --device
@@ -65,7 +68,7 @@ jobs:
       - name: Package and audit unsigned IPA
         run: |
           scripts/package-unsigned-ipa.sh
-          scripts/verify-release.sh artifacts/MaskPad-0.1.1-unsigned.ipa
+          scripts/verify-release.sh artifacts/MaskPad-0.1.2-unsigned.ipa
 
   simulator-tests:
     name: ROM-free Simulator UI
@@ -93,6 +96,9 @@ jobs:
         run: |
           scripts/clone-sources.sh
           scripts/apply-patches.sh
+
+      - name: Test SDL2 controller reconciliation
+        run: scripts/test-controller-reconnect.sh
 
       - name: Select an available iPad Simulator
         id: simulator
