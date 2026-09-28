@@ -39,7 +39,6 @@ relicense third-party projects or game material.
 |---|---|---|
 | Local Simulator build | **Verified** | Best for development, import-flow checks, and UI testing. |
 | Local iPad build | **Verified locally** | Configure your own Apple development team and bundle identifier before installation. |
-| Unsigned `.ipa` | **Published** | Download the current ROM-free [`v0.1.2` IPA](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.2/MaskPad-0.1.2-unsigned.ipa), verify its adjacent SHA-256 file, then re-sign it for your own device. |
 | App Store / TestFlight | **Not announced** | No listing or public TestFlight currently exists. |
 
 The current source has been exercised in iPhone and iPad Simulators and on a
@@ -257,11 +256,7 @@ scripts/package-unsigned-ipa.sh
 scripts/verify-release.sh artifacts/MaskPad-0.1.2-unsigned.ipa
 ```
 
-Alternatively, download the current audited [`v0.1.2` unsigned
-IPA](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.2/MaskPad-0.1.2-unsigned.ipa)
-and its [SHA-256
-file](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.2/MaskPad-0.1.2-unsigned.ipa.sha256).
-See the [installation guide](docs/install-ipa.md) before sideloading it.
+Previous builds have been retired; a new version is in progress.
 
 The IPA contains the project rights notice and discovered third-party license
 files. It contains no maintainer certificate, provisioning profile, ROM, or
@@ -272,13 +267,7 @@ generated `mm.o2r`, and must be re-signed before standard-device installation.
 <details>
 <summary><strong>Where is the IPA?</strong></summary>
 
-Download the current ROM-free [`v0.1.2` unsigned
-IPA](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.2/MaskPad-0.1.2-unsigned.ipa)
-and its [SHA-256
-file](https://github.com/chrissotraidis/maskpad/releases/download/v0.1.2/MaskPad-0.1.2-unsigned.ipa.sha256),
-or build the same package locally with the commands above. It must be
-re-signed using your own Apple account. See
-[`docs/install-ipa.md`](docs/install-ipa.md).
+Previous builds have been retired; a new version is in progress.
 </details>
 
 <details>
