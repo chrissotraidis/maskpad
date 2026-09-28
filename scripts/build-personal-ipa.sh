@@ -58,7 +58,8 @@ stage() {
 stage preflight "$ROOT/scripts/check-repo-safety.sh"
 stage dependencies "$ROOT/scripts/clone-sources.sh"
 stage patch "$ROOT/scripts/apply-patches.sh"
-if [ -d "${MASKPAD_IOS_BUILD_DIR:-$ROOT/build-ios-device}" ]; then
+# Reuse only a completed configuration; a failed one leaves a partial folder.
+if [ -d "${MASKPAD_IOS_BUILD_DIR:-$ROOT/build-ios-device}/2s2h.xcodeproj" ]; then
     emit stage_skipped configure
 else
     stage configure "$ROOT/scripts/configure-ios.sh" --device
@@ -67,4 +68,3 @@ stage compile "$ROOT/scripts/build-ios.sh" --device
 stage package "$ROOT/scripts/package-unsigned-ipa.sh" \
     "$ROOT/build-ios-device/mm/Release-iphoneos/MaskPad.app" "$OUTPUT"
 echo "Personal unsigned IPA: $OUTPUT"
-

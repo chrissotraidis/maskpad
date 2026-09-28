@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/chrissotraidis/maskpad/actions/workflows/ios-build.yml"><img alt="MaskPad iOS build" src="https://github.com/chrissotraidis/maskpad/actions/workflows/ios-build.yml/badge.svg"></a>
-  <img alt="iOS 14+" src="https://img.shields.io/badge/iOS%20%2F%20iPadOS-14%2B-0A84FF?logo=apple">
+  <img alt="iOS 15+" src="https://img.shields.io/badge/iOS%20%2F%20iPadOS-15%2B-0A84FF?logo=apple">
   <img alt="Metal renderer" src="https://img.shields.io/badge/renderer-Metal-5E5CE6">
   <img alt="Simulator tested" src="https://img.shields.io/badge/iPhone%20%2F%20iPad%20Simulator-tested-30D158">
   <img alt="Physical iPad tested" src="https://img.shields.io/badge/physical%20iPad-tested-30D158">
@@ -209,7 +209,7 @@ repository. Capture provenance is recorded in
 
 | Area | Current result |
 |---|---|
-| Native app | Full 2S2H app builds for arm64 iOS/iPadOS 14+ |
+| Native app | Full 2S2H app builds for arm64 iOS/iPadOS 15+ (Xcode 27's minimum) |
 | Rendering | Metal gameplay renders in Simulator and on physical iPad |
 | Game setup | Files-visible ROM discovery and local `mm.o2r` generation work |
 | Touch | Stick, D-pad, A/B/Z, C buttons, shoulders, Start, persistent menu, and adjustable opacity |

@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SOURCE="$ROOT/sources/2ship2harkinian"
 MODE="${1:---simulator}"
-DEPLOYMENT_TARGET="${MASKPAD_DEPLOYMENT_TARGET:-14.0}"
+# Xcode 27 accepts iOS deployment targets from 15.0; older Xcode also builds 15.0.
+DEPLOYMENT_TARGET="${MASKPAD_DEPLOYMENT_TARGET:-15.0}"
 BUNDLE_ID="${MASKPAD_BUNDLE_ID:-com.chrissotraidis.maskpad}"
 VERSION="${MASKPAD_VERSION:-0.1.2}"
 BUILD_NUMBER="${MASKPAD_BUILD_NUMBER:-3}"
@@ -33,6 +34,7 @@ cmake -S "$SOURCE" -B "$BUILD" -G Xcode \
     -DCMAKE_SYSTEM_NAME=iOS \
     -DPLATFORM="$PLATFORM" \
     -DDEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
     -DBUNDLE_ID:STRING="$BUNDLE_ID" \
     -DMASKPAD_VERSION="$VERSION" \
     -DMASKPAD_BUILD_NUMBER="$BUILD_NUMBER" \
