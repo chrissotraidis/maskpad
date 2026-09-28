@@ -1,31 +1,26 @@
-# Install the MaskPad IPA
+# Build and install MaskPad
 
-MaskPad's packaging script creates an unsigned IPA. It is not an App Store or
-TestFlight build. A personal sideload tool must re-sign it with your Apple ID
-before installation on an iPhone or iPad.
+Prebuilt MaskPad downloads have been retired. Build your own unsigned IPA on
+an Apple Silicon Mac, then re-sign it with a personal sideload tool. It is not
+an App Store or TestFlight build.
 
-The IPA does not include Majora's Mask, a ROM, or generated game data.
-
-## Download and verify
-
-Download both files from the current [`v0.1.2` GitHub
-release](https://github.com/chrissotraidis/maskpad/releases/tag/v0.1.2):
-
-- `MaskPad-0.1.2-unsigned.ipa`
-- `MaskPad-0.1.2-unsigned.ipa.sha256`
-
-From the directory containing both downloads, verify the package before
-installing it:
-
-```sh
-shasum -a 256 -c MaskPad-0.1.2-unsigned.ipa.sha256
-```
-
-The command must report `MaskPad-0.1.2-unsigned.ipa: OK`.
+The IPA does not include a ROM or generated game data; you import your own ROM
+in the app. It does contain code compiled from the 2 Ship 2 Harkinian
+decompilation, so keep your personal build private and do not share it.
 
 ## Build and package
 
-On the Mac used for development:
+Install the requirements in [building.md](building.md), then run one command
+from a clean checkout:
+
+```sh
+scripts/build-personal-ipa.sh --output artifacts/MaskPad-personal-unsigned.ipa
+```
+
+It runs the repository safety check, fetches the pinned upstream source,
+applies MaskPad's patches, builds for iPhone/iPad, and packages an unsigned
+IPA. Stage events are written to `build-personal/logs/progress.jsonl`. The
+individual steps remain available:
 
 ```sh
 scripts/clone-sources.sh
@@ -46,7 +41,7 @@ current official documentation. The general flow is:
 
 1. Configure the tool with your own Apple ID and device.
 2. On iOS or iPadOS 16 and later, enable **Developer Mode** if required.
-3. Select the downloaded or locally built unsigned IPA.
+3. Select your locally built unsigned IPA.
 4. Allow the tool to re-sign and install it.
 5. Launch MaskPad once, then follow the README's
    [first-launch instructions](../README.md#first-launch).

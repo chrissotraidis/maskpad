@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "id": "maskpad",
+  "name": "MaskPad",
+  "game": "The Legend of Zelda: Majora's Mask (N64) via 2 Ship 2 Harkinian",
+  "kind": "decomp-patches",
+  "status": "experimental",
+  "inputs": [
+    {
+      "type": "n64-rom",
+      "formats": [
+        "z64",
+        "n64",
+        "v64"
+      ],
+      "when": "in-app",
+      "description": "Your own supported Majora's Mask ROM, copied into the app's Files folder after installation. The build does not read it."
+    }
+  ],
+  "targets": {
+    "ios": {
+      "hosts": {
+        "macos-arm64": "experimental"
+      },
+      "command": [
+        "/bin/bash",
+        "{repo}/scripts/build-personal-ipa.sh",
+        "--work",
+        "{work}",
+        "--output",
+        "{output}"
+      ],
+      "modes": {
+        "full": []
+      },
+      "output": "ipa",
+      "check": "ipa"
+    }
+  },
+  "requirements": {
+    "disk_gb": 15,
+    "tools": [
+      {
+        "name": "git",
+        "version_args": [
+          "--version"
+        ]
+      },
+      {
+        "name": "cmake",
+        "version_args": [
+          "--version"
+        ]
+      },
+      {
+        "name": "ninja",
+        "version_args": [
+          "--version"
+        ]
+      },
+      {
+        "name": "python3",
+        "version_args": [
+          "--version"
+        ]
+      },
+      {
+        "name": "pkgconf",
+        "version_args": [
+          "--version"
+        ],
+        "note": "brew install pkgconf (see README for the full Homebrew list)"
+      },
+      {
+        "name": "xcodebuild",
+        "version_args": [
+          "-version"
+        ],
+        "note": "Install Xcode and its iOS platform"
+      }
+    ]
+  },
+  "stages": [
+    "preflight",
+    "dependencies",
+    "patch",
+    "configure",
+    "compile",
+    "package"
+  ],
+  "publication": {
+    "public_binaries": false,
+    "reason": "The app is compiled from the 2 Ship 2 Harkinian decompilation; public releases are source only."
+  }
+}
