@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="${1:-$ROOT/build-ios-device/mm/Release-iphoneos/MaskPad.app}"
-OUTPUT="${2:-$ROOT/artifacts/MaskPad-0.1.2-unsigned.ipa}"
+OUTPUT="${2:-$ROOT/artifacts/MaskPad-$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$ROOT/version.json")-unsigned.ipa}"
 
 if [[ "$APP" != /* ]]; then
     APP="$ROOT/$APP"

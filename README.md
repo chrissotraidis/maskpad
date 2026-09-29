@@ -37,6 +37,7 @@ relicense third-party projects or game material.
 
 | Option | Status | What to do |
 |---|---|---|
+| Make your own IPA with PadForge | **Available** | On a Mac, [PadForge](https://github.com/chrissotraidis/padforge/releases/latest) builds MaskPad from this repository's latest release and saves an unsigned IPA; install it with AltStore Classic, SideStore or Sideloadly. See [Get started](#get-started). |
 | Local Simulator build | **Verified** | Best for development, import-flow checks, and UI testing. |
 | Local iPad build | **Verified locally** | Configure your own Apple development team and bundle identifier before installation. |
 | App Store / TestFlight | **Not announced** | No listing or public TestFlight currently exists. |
@@ -50,6 +51,21 @@ wired, and natural-sleep controller acceptance, rumble, motion, audio-route
 coverage, and longer thermal tests are still open.
 
 ## Get started
+
+**The easy way:** on a Mac with Xcode, install the build libraries once:
+
+```sh
+brew install cmake ninja pkgconf sdl2 glew nlohmann-json libpng libzip \
+  tinyxml2 libogg libvorbis opus opusfile sdl2_net
+```
+
+then download [PadForge](https://github.com/chrissotraidis/padforge/releases/latest), unzip it,
+double-click `PadForge.command` and choose MaskPad. PadForge builds the app from this repository's
+latest release and saves an unsigned IPA in the folder you choose. Install it with your sideloading
+tool, then choose your ROM in the app (see [First launch](#first-launch)). Releases publish no app:
+the app is compiled from the 2 Ship 2 Harkinian decompilation, so you make your own.
+
+**By hand:**
 
 You need:
 
