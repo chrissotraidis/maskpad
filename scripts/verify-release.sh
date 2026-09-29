@@ -3,7 +3,12 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SOURCE="$ROOT/sources/2ship2harkinian"
+VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$ROOT/version.json")"
 ARTIFACT="${1:-}"
+# No argument: also check this version's packaged IPA when it exists.
+if [ -z "$ARTIFACT" ] && [ -f "$ROOT/artifacts/MaskPad-$VERSION-unsigned.ipa" ]; then
+    ARTIFACT="$ROOT/artifacts/MaskPad-$VERSION-unsigned.ipa"
+fi
 IPA=""
 source "$ROOT/scripts/pins.sh"
 

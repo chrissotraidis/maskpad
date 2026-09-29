@@ -28,11 +28,12 @@ scripts/apply-patches.sh
 scripts/configure-ios.sh --device
 scripts/build-ios.sh --device
 scripts/package-unsigned-ipa.sh
-scripts/verify-release.sh artifacts/MaskPad-0.1.2-unsigned.ipa
+scripts/verify-release.sh
 ```
 
-The result is `artifacts/MaskPad-0.1.2-unsigned.ipa`. Verify its SHA-256
-against the value printed by the packaging command.
+The result is `artifacts/MaskPad-<version>-unsigned.ipa`, using the version in
+`version.json`. Verify its SHA-256 against the value printed by the packaging
+command.
 
 ## Re-sign and install
 

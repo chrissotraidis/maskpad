@@ -13,7 +13,9 @@ The safety gate audits publishable paths and every reachable public-history
 blob for ROMs, derived game data, build products, packages, signing material,
 large accidental files, and likely credentials. The release gate additionally
 asserts pins, reverse-applies patches, compares overlays, and can recursively
-inspect an app or IPA.
+inspect an app or IPA. With no argument it inspects this version's packaged
+IPA (`artifacts/MaskPad-<version>-unsigned.ipa`, from `version.json`) when
+one exists.
 
 The controller regression compiles the patched SDL2
 `ConnectedPhysicalDeviceManager` against a fake device backend. It covers a

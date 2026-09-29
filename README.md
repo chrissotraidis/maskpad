@@ -269,7 +269,7 @@ Create and audit the unsigned package with:
 
 ```sh
 scripts/package-unsigned-ipa.sh
-scripts/verify-release.sh artifacts/MaskPad-0.1.2-unsigned.ipa
+scripts/verify-release.sh
 ```
 
 Previous builds have been retired; a new version is in progress.
