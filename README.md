@@ -272,7 +272,7 @@ scripts/package-unsigned-ipa.sh
 scripts/verify-release.sh
 ```
 
-Previous builds have been retired; a new version is in progress.
+Releases publish no IPA; this packaging step is for your own local builds.
 
 The IPA contains the project rights notice and discovered third-party license
 files. It contains no maintainer certificate, provisioning profile, ROM, or
@@ -283,7 +283,7 @@ generated `mm.o2r`, and must be re-signed before standard-device installation.
 <details>
 <summary><strong>Where is the IPA?</strong></summary>
 
-Previous builds have been retired; a new version is in progress.
+There is no public IPA: MaskPad is compiled from the 2 Ship 2 Harkinian decompilation, so PadForge builds your own on an Apple Silicon Mac. See [Get started](#get-started).
 </details>
 
 <details>
