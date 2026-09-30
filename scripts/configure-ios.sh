@@ -7,7 +7,7 @@ MODE="${1:---simulator}"
 # Xcode 27 accepts iOS deployment targets from 15.0; older Xcode also builds 15.0.
 DEPLOYMENT_TARGET="${MASKPAD_DEPLOYMENT_TARGET:-15.0}"
 BUNDLE_ID="${MASKPAD_BUNDLE_ID:-com.chrissotraidis.maskpad}"
-# One version for the app, its release and PadForge: version.json.
+# One version for the app, its release and PadMint: version.json.
 VERSION="${MASKPAD_VERSION:-$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$ROOT/version.json")}"
 BUILD_NUMBER="${MASKPAD_BUILD_NUMBER:-$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["build"])' "$ROOT/version.json")}"
 BUILD_UI_TESTS=OFF

@@ -7,7 +7,7 @@
 # checkout, MaskPad patches and overlays, device configuration, build, and the
 # audited unsigned package. No ROM is needed to build; import yours in the app.
 # Stage events are appended as JSON lines to DIR/logs/progress.jsonl (default
-# DIR: build-personal/) for PadForge and other frontends. The IPA contains code
+# DIR: build-personal/) for PadMint and other frontends. The IPA contains code
 # compiled from the 2 Ship 2 Harkinian decompilation: keep it private.
 set -euo pipefail
 

@@ -37,7 +37,7 @@ relicense third-party projects or game material.
 
 | Option | Status | What to do |
 |---|---|---|
-| Make your own IPA with PadForge | **Available** | On a Mac, [PadForge](https://github.com/chrissotraidis/padforge/releases/latest) builds MaskPad from this repository's latest release and saves an unsigned IPA; install it with AltStore Classic, SideStore or Sideloadly. See [Get started](#get-started). |
+| Make your own IPA with PadMint | **Available** | On a Mac, [PadMint](https://github.com/chrissotraidis/padmint/releases/latest) builds MaskPad from this repository's latest release and saves an unsigned IPA; install it with AltStore Classic, SideStore or Sideloadly. See [Get started](#get-started). |
 | Local Simulator build | **Verified** | Best for development, import-flow checks, and UI testing. |
 | Local iPad build | **Verified locally** | Configure your own Apple development team and bundle identifier before installation. |
 | App Store / TestFlight | **Not announced** | No listing or public TestFlight currently exists. |
@@ -59,8 +59,8 @@ brew install cmake ninja pkgconf sdl2 glew nlohmann-json libpng libzip \
   tinyxml2 libogg libvorbis opus opusfile sdl2_net
 ```
 
-then download [PadForge](https://github.com/chrissotraidis/padforge/releases/latest), unzip it,
-double-click `PadForge.command` and choose MaskPad. PadForge builds the app from this repository's
+then download [PadMint](https://github.com/chrissotraidis/padmint/releases/latest), unzip it,
+double-click `PadMint.command` and choose MaskPad. PadMint builds the app from this repository's
 latest release and saves an unsigned IPA in the folder you choose. Install it with your sideloading
 tool, then choose your ROM in the app (see [First launch](#first-launch)). Releases publish no app:
 the app is compiled from the 2 Ship 2 Harkinian decompilation, so you make your own.
@@ -283,7 +283,7 @@ generated `mm.o2r`, and must be re-signed before standard-device installation.
 <details>
 <summary><strong>Where is the IPA?</strong></summary>
 
-There is no public IPA: MaskPad is compiled from the 2 Ship 2 Harkinian decompilation, so PadForge builds your own on an Apple Silicon Mac. See [Get started](#get-started).
+There is no public IPA: MaskPad is compiled from the 2 Ship 2 Harkinian decompilation, so PadMint builds your own on an Apple Silicon Mac. See [Get started](#get-started).
 </details>
 
 <details>
