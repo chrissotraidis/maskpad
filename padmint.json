@@ -53,7 +53,7 @@
         ],
         "min_version": "3.26",
         "player": true,
-        "note": "Install CMake 3.26 or newer: brew install cmake"
+        "note": "Install CMake 3.26 or newer: brew install cmake. The native Mac archive build also needs the host libraries listed in the pkgconf setup note."
       },
       {
         "name": "ninja",
@@ -75,7 +75,7 @@
           "--version"
         ],
         "player": true,
-        "note": "brew install pkgconf (see README for the full Homebrew list)"
+        "note": "Native Mac archive setup: brew install pkgconf sdl2 glew libzip nlohmann-json tinyxml2 libpng libogg libvorbis opus opusfile. This check verifies pkgconf only, not library readiness."
       },
       {
         "name": "xcodebuild",
