@@ -49,7 +49,10 @@ the same two deterministic tests on every supplied device:
 scripts/test-ios-ui.sh <ipad-simulator-udid> <iphone-simulator-udid>
 ```
 
-It never enters test mode in a normal build or launch.
+It never enters test mode in a normal build or launch. Each invocation retains its result
+bundle under the selected build directory in `ui-results.*/Tests.xcresult`.
+On failure, the script prints the result summary and preserves the original
+Xcode exit code; a missing summary does not turn a failed test into a pass.
 
 When a user-generated `mm.o2r` is already installed in each supplied
 Simulator, the separate gameplay suite runs only the actual-engine semantic

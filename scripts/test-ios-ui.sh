@@ -13,13 +13,20 @@ MASKPAD_BUILD_UI_TESTS=1 "$ROOT/scripts/configure-ios.sh" --simulator
 
 for udid in "$@"; do
     xcrun simctl bootstatus "$udid" -b
+    results="$(mktemp -d "$BUILD/ui-results.XXXXXX")/Tests.xcresult"
+    echo "UI test results: $results"
     xcodebuild \
         -quiet \
         -project "$BUILD/2s2h.xcodeproj" \
         -scheme 2ship \
         -configuration Release \
+        -resultBundlePath "$results" \
         -destination "platform=iOS Simulator,id=$udid" \
         -only-testing:MaskPadUITests/MaskPadUITests/testControlPressReleaseToggleAndLifecycleCancellation \
         -only-testing:MaskPadUITests/MaskPadUITests/testMoveResizeClampProtectionResetAndPersistence \
-        test
+        test || {
+            status=$?
+            xcrun xcresulttool get test-results summary --path "$results" --compact || true
+            exit "$status"
+        }
 done
