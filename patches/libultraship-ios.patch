@@ -20,7 +20,8 @@ index 8f5813ac..0dbf8c3a 100644
          PATCH_COMMAND ${stormlib_apply_patch_command}
      )
      FetchContent_MakeAvailable(StormLib)
-@@ -53,4 +53,9 @@ endif()
+@@ -52,7 +52,12 @@ endif()
+ 
  #=================== STB ===================
  set(STB_DIR ${CMAKE_BINARY_DIR}/_deps/stb)
 -file(DOWNLOAD "https://github.com/nothings/stb/raw/0bc88af4de5fb022db643c2d8e549a0927749354/stb_image.h" "${STB_DIR}/stb_image.h")
@@ -31,7 +32,9 @@ index 8f5813ac..0dbf8c3a 100644
 +    EXPECTED_HASH SHA256=c54b15a689e6a1f32c75e2ec23afa442e3e0e37e894b73c1974d08679b20dd5c
 +)
  file(WRITE "${STB_DIR}/stb_impl.c" "#define STB_IMAGE_IMPLEMENTATION\n#include \"stb_image.h\"")
-@@ -97,6 +102,6 @@ endif()
+ 
+ add_library(stb STATIC)
+@@ -97,7 +102,7 @@ endif()
  FetchContent_Declare(
      ThreadPool
      GIT_REPOSITORY https://github.com/bshoshany/thread-pool.git
@@ -39,6 +42,7 @@ index 8f5813ac..0dbf8c3a 100644
 +    GIT_TAG 097aa718f25d44315cadb80b407144ad455ee4f9 # v4.1.0
  )
  FetchContent_MakeAvailable(ThreadPool)
+ 
 @@ -110,4 +115,4 @@ FetchContent_Declare(
      GIT_REPOSITORY https://github.com/KiritoDv/prism-processor.git
      GIT_TAG bbcbc7e3f890a5806b579361e7aa0336acd547e7
@@ -46,20 +50,105 @@ index 8f5813ac..0dbf8c3a 100644
 -FetchContent_MakeAvailable(prism)
 \ No newline at end of file
 +FetchContent_MakeAvailable(prism)
+diff --git a/cmake/dependencies/git-patch.cmake b/cmake/dependencies/git-patch.cmake
+index deb3e35d..70b39993 100644
+--- a/cmake/dependencies/git-patch.cmake
++++ b/cmake/dependencies/git-patch.cmake
+@@ -27,35 +27,23 @@ function(patch_if_needed)
+     set(ret ${ret} PARENT_SCOPE)
+ endfunction()
+ 
+-# Resets code and reapply patch, if old (potentially incompatible) patch applied
+-function(patch_if_needed_with_reset)
+-    patch_if_needed()
+-    if(NOT ret EQUAL 0)
+-        message(STATUS "Failed to patch in current state, clearing changes to reapply")
+-        execute_process(
+-            COMMAND git status --porcelain
+-            RESULT_VARIABLE is_changed
+-        )
+-        if(NOT is_changed EQUAL 0)
+-            message(WARNING "Patch inapplyable in clean state")
+-            set(ret 1)
+-        else()
+-            execute_process(COMMAND git reset --hard)
+-            patch_if_needed()
+-        endif()
+-    endif()
+-    set(ret ${ret} PARENT_SCOPE)
+-endfunction()
+-
++# Preserve dependency edits. An incompatible patch needs inspection, never reset.
++# with_reset is accepted for compatibility with existing package declarations.
+ message(STATUS "Trying to apply patch ${patch_file}")
+-if(with_reset)
+-    patch_if_needed_with_reset()
+-else()
+-    patch_if_needed()
++patch_if_needed()
++
++# An additive follow-up can upgrade a previously applied version of this patch.
++# Validate the complete final patch, not just the follow-up, before succeeding.
++if(NOT ret EQUAL 0 AND DEFINED fallback_patch_file)
++    execute_process(COMMAND git apply ${fallback_patch_file}
++        RESULT_VARIABLE upgrade_ret ERROR_QUIET)
++    if(upgrade_ret EQUAL 0)
++        check_patch()
++    endif()
+ endif()
+ 
+ if(NOT ret EQUAL 0)
+-    message(FATAL_ERROR "Failed to apply patch ${patch_file}")
++    message(FATAL_ERROR "Failed to apply patch ${patch_file}; dependency files were preserved. Inspect the checkout before retrying.")
+ else()
+     message(STATUS "Successfully patched with ${patch_file}")
+ endif()
 diff --git a/cmake/dependencies/ios.cmake b/cmake/dependencies/ios.cmake
-index 2ed98be1..aad5c586 100644
+index 2ed98be1..faa02c6b 100644
 --- a/cmake/dependencies/ios.cmake
 +++ b/cmake/dependencies/ios.cmake
-@@ -6,7 +6,7 @@ if (NOT ${SDL2_FOUND})
+@@ -3,22 +3,47 @@ include(FetchContent)
+ #=================== SDL2 ===================
+ find_package(SDL2 QUIET)
+ if (NOT ${SDL2_FOUND})
++    # SDL 2.32.10 predates UIKit scene startup required by the latest SDK.
++    # Use the same edit-preserving patch mechanism as other source dependencies.
++    set(sdl2_scene_patch ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/sdl2-uikit-scenes.patch)
++    set(sdl2_orientation_patch ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/sdl2-uikit-orientation.patch)
      FetchContent_Declare(
          SDL2
          GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
 -        GIT_TAG release-2.28.1
 +        GIT_TAG 5d249570393f7a37e037abf22cd6012a4cc56a71 # release-2.32.10
++        PATCH_COMMAND ${CMAKE_COMMAND} -Dpatch_file=${sdl2_scene_patch}
++            -Dfallback_patch_file=${sdl2_orientation_patch}
++            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/git-patch.cmake
          OVERRIDE_FIND_PACKAGE
      )
      FetchContent_MakeAvailable(SDL2)
-@@ -18,7 +18,7 @@ if (NOT ${nlohmann_json_FOUND})
+ endif()
+ 
++# Check the complete scene/orientation patch even when reusing populated SDL.
++# Its additive fallback upgrades old scene-only caches without a source reset.
++# Only patch our FetchContent dependency, never an externally installed SDL2.
++FetchContent_GetProperties(SDL2)
++if (sdl2_POPULATED)
++    execute_process(
++        COMMAND ${CMAKE_COMMAND}
++            -Dpatch_file=${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/sdl2-uikit-scenes.patch
++            -Dfallback_patch_file=${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/patches/sdl2-uikit-orientation.patch
++            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/dependencies/git-patch.cmake
++        WORKING_DIRECTORY ${sdl2_SOURCE_DIR}
++        RESULT_VARIABLE sdl2_orientation_result
++    )
++    if (NOT sdl2_orientation_result EQUAL 0)
++        message(FATAL_ERROR "SDL2 scene orientation patch failed; dependency files were preserved.")
++    endif()
++endif()
++
+ #=================== nlohmann-json ===================
+ find_package(nlohmann_json QUIET)
+ if (NOT ${nlohmann_json_FOUND})
      FetchContent_Declare(
          nlohmann_json
          GIT_REPOSITORY https://github.com/nlohmann/json.git
@@ -68,7 +157,7 @@ index 2ed98be1..aad5c586 100644
          OVERRIDE_FIND_PACKAGE
      )
      FetchContent_MakeAvailable(nlohmann_json)
-@@ -31,7 +31,7 @@ if (NOT ${tinyxml2_FOUND})
+@@ -31,7 +56,7 @@ if (NOT ${tinyxml2_FOUND})
      FetchContent_Declare(
          tinyxml2
          GIT_REPOSITORY https://github.com/leethomason/tinyxml2.git
@@ -77,7 +166,7 @@ index 2ed98be1..aad5c586 100644
          OVERRIDE_FIND_PACKAGE
      )
      FetchContent_MakeAvailable(tinyxml2)
-@@ -43,7 +43,7 @@ if (NOT ${spdlog_FOUND})
+@@ -43,7 +68,7 @@ if (NOT ${spdlog_FOUND})
      FetchContent_Declare(
          spdlog
          GIT_REPOSITORY https://github.com/gabime/spdlog.git
@@ -86,7 +175,7 @@ index 2ed98be1..aad5c586 100644
          OVERRIDE_FIND_PACKAGE
      )
      FetchContent_MakeAvailable(spdlog)
-@@ -62,7 +62,7 @@ if (NOT ${libzip_FOUND})
+@@ -62,7 +87,7 @@ if (NOT ${libzip_FOUND})
      FetchContent_Declare(
          libzip
          GIT_REPOSITORY https://github.com/nih-at/libzip.git
@@ -95,7 +184,7 @@ index 2ed98be1..aad5c586 100644
          OVERRIDE_FIND_PACKAGE
      )
      FetchContent_MakeAvailable(libzip)
-@@ -73,7 +73,7 @@ endif()
+@@ -73,7 +98,7 @@ endif()
  FetchContent_Declare(
      metalcpp
      GIT_REPOSITORY https://github.com/briaguya-ai/single-header-metal-cpp.git
@@ -105,7 +194,7 @@ index 2ed98be1..aad5c586 100644
  FetchContent_MakeAvailable(metalcpp)
  list(APPEND ADDITIONAL_LIB_INCLUDES ${metalcpp_SOURCE_DIR})
 diff --git a/cmake/dependencies/mac.cmake b/cmake/dependencies/mac.cmake
-index 1a1694d3..31479f12 100644
+index 1a1694d3..84f1760b 100644
 --- a/cmake/dependencies/mac.cmake
 +++ b/cmake/dependencies/mac.cmake
 @@ -8,7 +8,7 @@ if (NOT ${spdlog_FOUND})
@@ -126,6 +215,420 @@ index 1a1694d3..31479f12 100644
  )
  FetchContent_MakeAvailable(metalcpp)
  list(APPEND ADDITIONAL_LIB_INCLUDES ${metalcpp_SOURCE_DIR})
+diff --git a/cmake/dependencies/patches/sdl2-uikit-orientation.patch b/cmake/dependencies/patches/sdl2-uikit-orientation.patch
+new file mode 100644
+index 00000000..b701a394
+--- /dev/null
++++ b/cmake/dependencies/patches/sdl2-uikit-orientation.patch
+@@ -0,0 +1,133 @@
++diff --git a/src/video/uikit/SDL_uikitappdelegate.m b/src/video/uikit/SDL_uikitappdelegate.m
++index 4e70e69d..ed60dfac 100644
++--- a/src/video/uikit/SDL_uikitappdelegate.m
+++++ b/src/video/uikit/SDL_uikitappdelegate.m
++@@ -28,6 +28,7 @@
++ #include "SDL_main.h"
++ 
++ #import "SDL_uikitappdelegate.h"
+++#import "SDL_uikitvideo.h"
++ #import "SDL_uikitmodes.h"
++ #import "SDL_uikitwindow.h"
++ 
++@@ -89,7 +90,7 @@ SDL_IdleTimerDisabledChanged(void *userdata, const char *name, const char *oldVa
++ /* Load a launch image using the old UILaunchImageFile-era naming rules. */
++ static UIImage *SDL_LoadLaunchImageNamed(NSString *name, int screenh)
++ {
++-    UIInterfaceOrientation curorient = [UIApplication sharedApplication].statusBarOrientation;
+++    UIInterfaceOrientation curorient = UIKit_GetInterfaceOrientation();
++     UIUserInterfaceIdiom idiom = [UIDevice currentDevice].userInterfaceIdiom;
++     UIImage *image = nil;
++ 
++@@ -219,7 +220,7 @@ static UIImage *SDL_LoadLaunchImageNamed(NSString *name, int screenh)
++         int screenh = (int)([UIScreen mainScreen].bounds.size.height + 0.5);
++ 
++ #if !TARGET_OS_TV
++-        UIInterfaceOrientation curorient = [UIApplication sharedApplication].statusBarOrientation;
+++        UIInterfaceOrientation curorient = UIKit_GetInterfaceOrientation();
++ 
++         /* We always want portrait-oriented size, to match UILaunchImageSize. */
++         if (screenw > screenh) {
++@@ -572,6 +573,17 @@ static UIImage *SDL_LoadLaunchImageNamed(NSString *name, int screenh)
++     }
++ }
++ 
+++#if !TARGET_OS_TV && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
+++- (void)windowScene:(UIWindowScene *)windowScene didUpdateEffectiveGeometry:(UIWindowSceneGeometry *)previousGeometry API_AVAILABLE(ios(26.0))
+++{
+++    if (@available(iOS 27.0, *)) {
+++        if (windowScene.effectiveGeometry.interfaceOrientation != previousGeometry.interfaceOrientation) {
+++            SDL_OnApplicationDidChangeStatusBarOrientation();
+++        }
+++    }
+++}
+++#endif
+++
++ - (void)scene:(UIScene *)scene openURLContexts:(NSSet<UIOpenURLContext *> *)contexts
++ {
++     for (UIOpenURLContext *context in contexts) {
++diff --git a/src/video/uikit/SDL_uikitmodes.m b/src/video/uikit/SDL_uikitmodes.m
++index 97c59c25..c046a713 100644
++--- a/src/video/uikit/SDL_uikitmodes.m
+++++ b/src/video/uikit/SDL_uikitmodes.m
++@@ -355,7 +355,7 @@ SDL_bool UIKit_IsDisplayLandscape(UIScreen *uiscreen)
++ {
++ #if !TARGET_OS_TV
++     if (uiscreen == [UIScreen mainScreen]) {
++-        return UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation);
+++        return UIInterfaceOrientationIsLandscape(UIKit_GetInterfaceOrientation());
++     } else
++ #endif /* !TARGET_OS_TV */
++     {
++@@ -525,7 +525,7 @@ void UIKit_QuitModes(_THIS)
++ #if !TARGET_OS_TV
++ void SDL_OnApplicationDidChangeStatusBarOrientation(void)
++ {
++-    BOOL isLandscape = UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation);
+++    BOOL isLandscape = UIInterfaceOrientationIsLandscape(UIKit_GetInterfaceOrientation());
++     SDL_VideoDisplay *display = SDL_GetDisplay(0);
++ 
++     if (display) {
++@@ -550,7 +550,7 @@ void SDL_OnApplicationDidChangeStatusBarOrientation(void)
++             currentmode->h = height;
++         }
++ 
++-        switch ([UIApplication sharedApplication].statusBarOrientation) {
+++        switch (UIKit_GetInterfaceOrientation()) {
++         case UIInterfaceOrientationPortrait:
++             orientation = SDL_ORIENTATION_PORTRAIT;
++             break;
++diff --git a/src/video/uikit/SDL_uikitvideo.h b/src/video/uikit/SDL_uikitvideo.h
++index 4d3b81a9..e434574a 100644
++--- a/src/video/uikit/SDL_uikitvideo.h
+++++ b/src/video/uikit/SDL_uikitvideo.h
++@@ -33,6 +33,11 @@
++ 
++ @end
++ 
+++/* SDL 2.32.10 scene backport: SDK 27 requires scene-aware orientation. */
+++#if !TARGET_OS_TV
+++UIInterfaceOrientation UIKit_GetInterfaceOrientation(void);
+++#endif
+++
++ CGRect UIKit_ComputeViewFrame(SDL_Window *window, UIScreen *screen);
++ 
++ #endif /* __OBJC__ */
++diff --git a/src/video/uikit/SDL_uikitvideo.m b/src/video/uikit/SDL_uikitvideo.m
++index f7aa3fd1..25643aad 100644
++--- a/src/video/uikit/SDL_uikitvideo.m
+++++ b/src/video/uikit/SDL_uikitvideo.m
++@@ -194,6 +194,24 @@ SDL_bool UIKit_IsSystemVersionAtLeast(double version)
++     return [[UIDevice currentDevice].systemVersion doubleValue] >= version;
++ }
++ 
+++#if !TARGET_OS_TV
+++/* SDL 2.32.10 scene backport, informed by SDL upstream 114aca1727c7. */
+++UIInterfaceOrientation UIKit_GetInterfaceOrientation(void)
+++{
+++    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+++        if ([scene isKindOfClass:[UIWindowScene class]] && [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+++            UIWindowScene *windowScene=(UIWindowScene *)scene;
+++#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
+++            if (@available(iOS 27.0, *)) return windowScene.effectiveGeometry.interfaceOrientation;
+++#endif
+++            return windowScene.interfaceOrientation;
+++        }
+++    }
+++    return [UIApplication sharedApplication].statusBarOrientation;
+++}
+++
+++#endif
+++
++ CGRect UIKit_ComputeViewFrame(SDL_Window *window, UIScreen *screen)
++ {
++     SDL_WindowData *data = (__bridge SDL_WindowData *) window->driverdata;
++@@ -220,7 +238,7 @@ CGRect UIKit_ComputeViewFrame(SDL_Window *window, UIScreen *screen)
++      * https://bugzilla.libsdl.org/show_bug.cgi?id=3505
++      * https://bugzilla.libsdl.org/show_bug.cgi?id=3465
++      * https://forums.developer.apple.com/thread/65337 */
++-    orient = [UIApplication sharedApplication].statusBarOrientation;
+++    orient = UIKit_GetInterfaceOrientation();
++     landscape = UIInterfaceOrientationIsLandscape(orient) ||
++                     !(UIKit_GetSupportedOrientations(window) & (UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskPortraitUpsideDown));
++     fullscreen = CGRectEqualToRect(screen.bounds, frame);
+diff --git a/cmake/dependencies/patches/sdl2-uikit-scenes.patch b/cmake/dependencies/patches/sdl2-uikit-scenes.patch
+new file mode 100644
+index 00000000..cc87e7e4
+--- /dev/null
++++ b/cmake/dependencies/patches/sdl2-uikit-scenes.patch
+@@ -0,0 +1,269 @@
++--- a/src/video/uikit/SDL_uikitappdelegate.h
+++++ b/src/video/uikit/SDL_uikitappdelegate.h
++@@ -35,6 +35,7 @@
++ + (NSString *)getAppDelegateClassName;
++ 
++ - (void)hideLaunchScreen;
+++- (BOOL)startSDLForScene:(UIWindowScene *)scene API_AVAILABLE(ios(13.0), tvos(13.0));
++ 
++ /* This property is marked as optional, and is only intended to be used when
++  * the app's UI is storyboard-based. SDL is not storyboard-based, however
++@@ -44,4 +45,9 @@
++ 
++ @end
++ 
+++/* SDL 2.32.10 scene backport: a single application scene owns SDL startup. */
+++API_AVAILABLE(ios(13.0), tvos(13.0))
+++@interface SDLUIKitSceneDelegate : NSObject<UIWindowSceneDelegate>
+++@end
+++
++ /* vi: set ts=4 sw=4 expandtab: */
++--- a/src/video/uikit/SDL_uikitappdelegate.m
+++++ b/src/video/uikit/SDL_uikitappdelegate.m
++@@ -28,6 +28,7 @@
++ #include "SDL_main.h"
++ 
++ #import "SDL_uikitappdelegate.h"
+++#import "SDL_uikitvideo.h"
++ #import "SDL_uikitmodes.h"
++ #import "SDL_uikitwindow.h"
++ 
++@@ -89,7 +90,7 @@
++ /* Load a launch image using the old UILaunchImageFile-era naming rules. */
++ static UIImage *SDL_LoadLaunchImageNamed(NSString *name, int screenh)
++ {
++-    UIInterfaceOrientation curorient = [UIApplication sharedApplication].statusBarOrientation;
+++    UIInterfaceOrientation curorient = UIKit_GetInterfaceOrientation();
++     UIUserInterfaceIdiom idiom = [UIDevice currentDevice].userInterfaceIdiom;
++     UIImage *image = nil;
++ 
++@@ -219,7 +220,7 @@
++         int screenh = (int)([UIScreen mainScreen].bounds.size.height + 0.5);
++ 
++ #if !TARGET_OS_TV
++-        UIInterfaceOrientation curorient = [UIApplication sharedApplication].statusBarOrientation;
+++        UIInterfaceOrientation curorient = UIKit_GetInterfaceOrientation();
++ 
++         /* We always want portrait-oriented size, to match UILaunchImageSize. */
++         if (screenw > screenh) {
++@@ -412,6 +413,30 @@
++ 
++ - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
++ {
+++    /* Scene-enabled apps start only after UIKit connects their application scene. */
+++    if ([[NSBundle mainBundle] objectForInfoDictionaryKey:@"UIApplicationSceneManifest"]) {
+++        return YES;
+++    }
+++    return [self startSDLForScene:nil];
+++}
+++
+++- (UISceneConfiguration *)application:(UIApplication *)application configurationForConnectingSceneSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options
+++{
+++    UISceneConfiguration *config = [[UISceneConfiguration alloc] initWithName:@"SDLSceneConfiguration" sessionRole:session.role];
+++    if ([session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+++        config.delegateClass = [SDLUIKitSceneDelegate class];
+++    }
+++    return config;
+++}
+++
+++- (BOOL)startSDLForScene:(UIWindowScene *)scene
+++{
+++    /* External displays and reconnects must never call SDL_main a second time. */
+++    static BOOL started = NO;
+++    if (started) {
+++        return YES;
+++    }
+++    started = YES;
++     NSBundle *bundle = [NSBundle mainBundle];
++ 
++ #ifdef SDL_IPHONE_LAUNCHSCREEN
++@@ -448,7 +473,11 @@
++     }
++ 
++     if (vc.view) {
++-        launchWindow = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+++        launchWindow = scene ? [[UIWindow alloc] initWithWindowScene:scene]
+++                             : [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+++        if (scene) {
+++            launchWindow.frame = scene.coordinateSpace.bounds;
+++        }
++ 
++         /* We don't want the launch window immediately hidden when a real SDL
++          * window is shown - we fade it out ourselves when we're ready. */
++@@ -527,6 +556,43 @@
++ 
++ @end
++ 
+++/* SDL 2.32.10 scene backport. SDL's existing notification observer continues to
+++ * deliver application foreground/background, memory and termination events. */
+++@implementation SDLUIKitSceneDelegate
+++
+++- (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options
+++{
+++    if (![scene isKindOfClass:[UIWindowScene class]] ||
+++        ![session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+++        return;
+++    }
+++    SDLUIKitDelegate *delegate = [SDLUIKitDelegate sharedAppDelegate];
+++    [delegate startSDLForScene:(UIWindowScene *)scene];
+++    for (UIOpenURLContext *context in options.URLContexts) {
+++        [delegate sendDropFileForURL:context.URL];
+++    }
+++}
+++
+++#if !TARGET_OS_TV && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
+++- (void)windowScene:(UIWindowScene *)windowScene didUpdateEffectiveGeometry:(UIWindowSceneGeometry *)previousGeometry API_AVAILABLE(ios(26.0))
+++{
+++    if (@available(iOS 27.0, *)) {
+++        if (windowScene.effectiveGeometry.interfaceOrientation != previousGeometry.interfaceOrientation) {
+++            SDL_OnApplicationDidChangeStatusBarOrientation();
+++        }
+++    }
+++}
+++#endif
+++
+++- (void)scene:(UIScene *)scene openURLContexts:(NSSet<UIOpenURLContext *> *)contexts
+++{
+++    for (UIOpenURLContext *context in contexts) {
+++        [[SDLUIKitDelegate sharedAppDelegate] sendDropFileForURL:context.URL];
+++    }
+++}
+++
+++@end
+++
++ #endif /* SDL_VIDEO_DRIVER_UIKIT */
++ 
++ /* vi: set ts=4 sw=4 expandtab: */
++--- a/src/video/uikit/SDL_uikitwindow.m
+++++ b/src/video/uikit/SDL_uikitwindow.m
++@@ -207,7 +207,24 @@
++ 
++         /* ignore the size user requested, and make a fullscreen window */
++         /* !!! FIXME: can we have a smaller view? */
++-        uiwindow = [[SDL_uikitwindow alloc] initWithFrame:data.uiscreen.bounds];
+++        /* SDL 2.32.10 scene backport: attach SDL's real window to the connected scene. */
+++        UIWindowScene *windowScene = nil;
+++        if (@available(iOS 13.0, tvOS 13.0, *)) {
+++            for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+++                if ([scene isKindOfClass:[UIWindowScene class]] &&
+++                    [(UIWindowScene *)scene screen] == data.uiscreen &&
+++                    [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+++                    windowScene = (UIWindowScene *)scene;
+++                    break;
+++                }
+++            }
+++        }
+++        if (windowScene) {
+++            uiwindow = [[SDL_uikitwindow alloc] initWithWindowScene:windowScene];
+++            uiwindow.frame = windowScene.coordinateSpace.bounds;
+++        } else {
+++            uiwindow = [[SDL_uikitwindow alloc] initWithFrame:data.uiscreen.bounds];
+++        }
++ 
++         /* put the window on an external display if appropriate. */
++         if (data.uiscreen != [UIScreen mainScreen]) {
++--- a/src/video/uikit/SDL_uikitmessagebox.m
+++++ b/src/video/uikit/SDL_uikitmessagebox.m
++@@ -99,7 +99,22 @@
++     }
++ 
++     if (window == nil || window.rootViewController == nil) {
++-        alertwindow = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+++        /* SDL 2.32.10 scene backport: first-run alerts also need an application scene. */
+++        UIWindowScene *windowScene = nil;
+++        if (@available(iOS 13.0, tvOS 13.0, *)) {
+++            for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+++                if ([scene isKindOfClass:[UIWindowScene class]] &&
+++                    [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+++                    windowScene = (UIWindowScene *)scene;
+++                    break;
+++                }
+++            }
+++        }
+++        alertwindow = windowScene ? [[UIWindow alloc] initWithWindowScene:windowScene]
+++                                  : [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+++        if (windowScene) {
+++            alertwindow.frame = windowScene.coordinateSpace.bounds;
+++        }
++         alertwindow.rootViewController = [UIViewController new];
++         alertwindow.windowLevel = UIWindowLevelAlert;
++ 
++--- a/src/video/uikit/SDL_uikitvideo.h
+++++ b/src/video/uikit/SDL_uikitvideo.h
++@@ -33,6 +33,11 @@
++ 
++ @end
++ 
+++/* SDL 2.32.10 scene backport: SDK 27 requires scene-aware orientation. */
+++#if !TARGET_OS_TV
+++UIInterfaceOrientation UIKit_GetInterfaceOrientation(void);
+++#endif
+++
++ CGRect UIKit_ComputeViewFrame(SDL_Window *window, UIScreen *screen);
++ 
++ #endif /* __OBJC__ */
++--- a/src/video/uikit/SDL_uikitvideo.m
+++++ b/src/video/uikit/SDL_uikitvideo.m
++@@ -194,6 +194,24 @@
++     return [[UIDevice currentDevice].systemVersion doubleValue] >= version;
++ }
++ 
+++#if !TARGET_OS_TV
+++/* SDL 2.32.10 scene backport, informed by SDL upstream 114aca1727c7. */
+++UIInterfaceOrientation UIKit_GetInterfaceOrientation(void)
+++{
+++    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+++        if ([scene isKindOfClass:[UIWindowScene class]] && [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+++            UIWindowScene *windowScene=(UIWindowScene *)scene;
+++#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
+++            if (@available(iOS 27.0, *)) return windowScene.effectiveGeometry.interfaceOrientation;
+++#endif
+++            return windowScene.interfaceOrientation;
+++        }
+++    }
+++    return [UIApplication sharedApplication].statusBarOrientation;
+++}
+++
+++#endif
+++
++ CGRect UIKit_ComputeViewFrame(SDL_Window *window, UIScreen *screen)
++ {
++     SDL_WindowData *data = (__bridge SDL_WindowData *) window->driverdata;
++@@ -220,7 +238,7 @@
++      * https://bugzilla.libsdl.org/show_bug.cgi?id=3505
++      * https://bugzilla.libsdl.org/show_bug.cgi?id=3465
++      * https://forums.developer.apple.com/thread/65337 */
++-    orient = [UIApplication sharedApplication].statusBarOrientation;
+++    orient = UIKit_GetInterfaceOrientation();
++     landscape = UIInterfaceOrientationIsLandscape(orient) ||
++                     !(UIKit_GetSupportedOrientations(window) & (UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskPortraitUpsideDown));
++     fullscreen = CGRectEqualToRect(screen.bounds, frame);
++--- a/src/video/uikit/SDL_uikitmodes.m
+++++ b/src/video/uikit/SDL_uikitmodes.m
++@@ -355,7 +355,7 @@
++ {
++ #if !TARGET_OS_TV
++     if (uiscreen == [UIScreen mainScreen]) {
++-        return UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation);
+++        return UIInterfaceOrientationIsLandscape(UIKit_GetInterfaceOrientation());
++     } else
++ #endif /* !TARGET_OS_TV */
++     {
++@@ -525,7 +525,7 @@
++ #if !TARGET_OS_TV
++ void SDL_OnApplicationDidChangeStatusBarOrientation(void)
++ {
++-    BOOL isLandscape = UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation);
+++    BOOL isLandscape = UIInterfaceOrientationIsLandscape(UIKit_GetInterfaceOrientation());
++     SDL_VideoDisplay *display = SDL_GetDisplay(0);
++ 
++     if (display) {
++@@ -550,7 +550,7 @@
++             currentmode->h = height;
++         }
++ 
++-        switch ([UIApplication sharedApplication].statusBarOrientation) {
+++        switch (UIKit_GetInterfaceOrientation()) {
++         case UIInterfaceOrientationPortrait:
++             orientation = SDL_ORIENTATION_PORTRAIT;
++             break;
 diff --git a/cmake/ios-toolchain-populate.cmake b/cmake/ios-toolchain-populate.cmake
 index eb93fea4..644bcc26 100644
 --- a/cmake/ios-toolchain-populate.cmake
@@ -158,7 +661,7 @@ index b926895a..13961899 100644
  class Viewport;
  } // namespace MTL
 @@ -116,7 +117,7 @@ struct CoordUniforms {
-
+ 
  class GfxRenderingAPIMetal final : public GfxRenderingAPI {
    public:
 -    ~GfxRenderingAPIMetal() override = default;
@@ -171,9 +674,9 @@ index b926895a..13961899 100644
      CoordUniforms mCoordUniforms;
      MTL::Buffer* mFrameUniformBuffer;
 +    MTL::DepthStencilState* mDepthStencilStates[2][2][2] = {};
-
+ 
      uint32_t mMsaaNumQualityLevels[METAL_MAX_MULTISAMPLE_SAMPLE_COUNT];
-
+ 
 diff --git a/include/fast/backends/gfx_sdl.h b/include/fast/backends/gfx_sdl.h
 index 1f03cb63..27d6a9b6 100644
 --- a/include/fast/backends/gfx_sdl.h
@@ -193,7 +696,7 @@ index 623f16d3..5be84e59 100644
 +++ b/include/libultraship/bridge/windowbridge.h
 @@ -7,6 +7,7 @@ extern "C" {
  #endif
-
+ 
  bool WindowIsRunning();
 +void WindowWaitForFrameReady();
  uint32_t WindowGetWidth();
@@ -208,7 +711,7 @@ index 3190664c..a842991c 100644
      std::shared_ptr<std::vector<AudioBackend>> GetAvailableAudioBackends();
      void SetCurrentAudioBackend(AudioBackend backend);
 +    void SetPaused(bool paused);
-
+ 
    protected:
      void InitAudioPlayer();
 diff --git a/include/ship/audio/AudioPlayer.h b/include/ship/audio/AudioPlayer.h
@@ -221,9 +724,9 @@ index 1d8b1c47..40b05b40 100644
      virtual void Play(const uint8_t* buf, size_t len) = 0;
 +    virtual void SetPaused(bool) {
 +    }
-
+ 
      bool IsInitialized();
-
+ 
 diff --git a/include/ship/audio/SDLAudioPlayer.h b/include/ship/audio/SDLAudioPlayer.h
 index fb82faf9..9998c82f 100644
 --- a/include/ship/audio/SDLAudioPlayer.h
@@ -233,26 +736,76 @@ index fb82faf9..9998c82f 100644
  #include "AudioPlayer.h"
 +#include <atomic>
  #include <SDL2/SDL.h>
-
+ 
  namespace Ship {
 @@ -9,14 +10,16 @@ class SDLAudioPlayer final : public AudioPlayer {
      }
      ~SDLAudioPlayer();
-
+ 
 -    int Buffered();
 -    void Play(const uint8_t* buf, size_t len);
 +    int Buffered() override;
 +    void Play(const uint8_t* buf, size_t len) override;
 +    void SetPaused(bool paused) override;
-
+ 
    protected:
 -    bool DoInit();
 +    bool DoInit() override;
-
+ 
    private:
      SDL_AudioDeviceID mDevice;
      int32_t mNumChannels = 2;
 +    std::atomic_bool mPaused = false;
+ };
+ } // namespace Ship
+diff --git a/include/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.h b/include/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.h
+index 89c05b55..8da223bf 100644
+--- a/include/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.h
++++ b/include/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.h
+@@ -4,6 +4,7 @@
+ #include <unordered_set>
+ #include <vector>
+ #include <string>
++#include <cstdint>
+ #include <SDL2/SDL.h>
+ 
+ namespace Ship {
+@@ -22,9 +23,15 @@ class ConnectedPhysicalDeviceManager {
+ 
+     void HandlePhysicalDeviceConnect(int32_t sdlDeviceIndex);
+     void HandlePhysicalDeviceDisconnect(int32_t sdlJoystickInstanceId);
+-    void RefreshConnectedSDLGamepads();
++    void HandlePhysicalDeviceRemap(int32_t sdlJoystickInstanceId);
++    void RefreshConnectedSDLGamepads(const char* reason = "manual");
+ 
+   private:
++    static constexpr uint8_t kPortCount = 4;
++
++    bool GamepadHandleIsCurrent(int32_t instanceId, SDL_GameController* gamepad) const;
++    void CloseGamepad(int32_t instanceId, SDL_GameController* gamepad, const char* reason);
++    void AssignNewGamepadToFirstFreePort(int32_t instanceId);
+     std::unordered_map<int32_t, SDL_GameController*> mConnectedSDLGamepads;
+     std::unordered_map<int32_t, std::string> mConnectedSDLGamepadNames;
+     std::unordered_map<uint8_t, std::unordered_set<int32_t>> mIgnoredInstanceIds;
+diff --git a/include/ship/controller/physicaldevice/SDLAddRemoveDeviceEventHandler.h b/include/ship/controller/physicaldevice/SDLAddRemoveDeviceEventHandler.h
+index 63c3afa8..6aadf725 100644
+--- a/include/ship/controller/physicaldevice/SDLAddRemoveDeviceEventHandler.h
++++ b/include/ship/controller/physicaldevice/SDLAddRemoveDeviceEventHandler.h
+@@ -1,6 +1,7 @@
+ #pragma once
+ 
+ #include "ship/window/gui/GuiWindow.h"
++#include <cstdint>
+ 
+ namespace Ship {
+ 
+@@ -13,5 +14,8 @@ class SDLAddRemoveDeviceEventHandler : public GuiWindow {
+     void InitElement() override;
+     void DrawElement() override;
+     void UpdateElement() override;
++
++  private:
++    uint32_t mLastReconcileTicks = 0;
  };
  } // namespace Ship
 diff --git a/src/fast/Fast3dWindow.cpp b/src/fast/Fast3dWindow.cpp
@@ -261,7 +814,7 @@ index 9943170d..6c4cba83 100644
 +++ b/src/fast/Fast3dWindow.cpp
 @@ -76,6 +76,10 @@ void Fast3dWindow::Init() {
      int32_t posX, posY;
-
+ 
      isFullscreen = Ship::Context::GetInstance()->GetConfig()->GetBool("Window.Fullscreen.Enabled", false) || gameMode;
 +#ifdef __IOS__
 +    isFullscreen = false;
@@ -269,7 +822,7 @@ index 9943170d..6c4cba83 100644
 +#endif
      posX = Ship::Context::GetInstance()->GetConfig()->GetInt("Window.PositionX", 100);
      posY = Ship::Context::GetInstance()->GetConfig()->GetInt("Window.PositionY", 100);
-
+ 
 diff --git a/src/fast/backends/gfx_metal.cpp b/src/fast/backends/gfx_metal.cpp
 index ad7cc49d..11e3d531 100644
 --- a/src/fast/backends/gfx_metal.cpp
@@ -277,7 +830,7 @@ index ad7cc49d..11e3d531 100644
 @@ -43,6 +43,18 @@
  // MARK: - Helpers
  namespace Fast {
-
+ 
 +GfxRenderingAPIMetal::~GfxRenderingAPIMetal() {
 +    for (auto& depthTestStates : mDepthStencilStates) {
 +        for (auto& depthMaskStates : depthTestStates) {
@@ -295,14 +848,14 @@ index ad7cc49d..11e3d531 100644
          case G_TX_NOMIRROR | G_TX_CLAMP:
 @@ -418,20 +430,23 @@ void GfxRenderingAPIMetal::DrawTriangles(float buf_vbo[], size_t buf_vbo_len, si
      auto& current_framebuffer = mFramebuffers[mCurrentFramebuffer];
-
+ 
      if (current_framebuffer.mLastDepthTest != mCurrentDepthTest ||
 -        current_framebuffer.mLastDepthMask != mCurrentDepthMask) {
 +        current_framebuffer.mLastDepthMask != mCurrentDepthMask ||
 +        current_framebuffer.mLastZmodeDecal != mCurrentZmodeDecal) {
          current_framebuffer.mLastDepthTest = mCurrentDepthTest;
          current_framebuffer.mLastDepthMask = mCurrentDepthMask;
-
+ 
 -        MTL::DepthStencilDescriptor* depth_descriptor = MTL::DepthStencilDescriptor::alloc()->init();
 -        depth_descriptor->setDepthWriteEnabled(mCurrentDepthMask);
 -        depth_descriptor->setDepthCompareFunction(
@@ -325,45 +878,45 @@ index ad7cc49d..11e3d531 100644
 -
 -        depth_descriptor->release();
      }
-
+ 
      if (current_framebuffer.mLastZmodeDecal != mCurrentZmodeDecal) {
 @@ -599,15 +614,17 @@ void GfxRenderingAPIMetal::SetupScreenFramebuffer(uint32_t width, uint32_t heigh
      mCurrentDrawable = nullptr;
      mCurrentDrawable = mLayer->nextDrawable();
-
+ 
 -    bool msaa_enabled = Ship::Context::GetInstance()->GetConsoleVariables()->GetInteger("gMSAAValue", 1) > 1;
 +    bool msaa_enabled = Ship::Context::GetInstance()->GetConsoleVariables()->GetInteger(CVAR_MSAA_VALUE, 1) > 1;
-
+ 
      FramebufferMetal& fb = mFramebuffers[0];
      TextureDataMetal& tex = mTextures[fb.mTextureId];
-
+ 
      NS::AutoreleasePool* autorelease_pool = NS::AutoreleasePool::alloc()->init();
-
+ 
 -    if (tex.texture != nullptr)
 -        tex.texture->release();
 +    // The screen texture is owned by CAMetalDrawable. Releasing this borrowed
 +    // pointer here over-releases it; QuartzCore releases it again when the
 +    // drawable is retired, which crashes when iOS backgrounds the app.
 +    // Assign the next drawable's texture and let the drawable own its lifetime.
-
+ 
      tex.texture = mCurrentDrawable->texture();
-
+ 
 @@ -713,7 +730,7 @@ void GfxRenderingAPIMetal::UpdateFramebufferParameters(int fb_id, uint32_t width
-
+ 
              bool fb_msaa_enabled = (msaa_level > 1);
              bool game_msaa_enabled =
 -                Ship::Context::GetInstance()->GetConsoleVariables()->GetInteger("gMSAAValue", 1) > 1;
 +                Ship::Context::GetInstance()->GetConsoleVariables()->GetInteger(CVAR_MSAA_VALUE, 1) > 1;
-
+ 
              if (fb_msaa_enabled) {
                  render_pass_descriptor->colorAttachments()->object(0)->setTexture(tex.msaaTexture);
 diff --git a/src/fast/backends/gfx_sdl2.cpp b/src/fast/backends/gfx_sdl2.cpp
-index eb5df8b2..5a2b85a7 100644
+index eb5df8b2..4975bdde 100644
 --- a/src/fast/backends/gfx_sdl2.cpp
 +++ b/src/fast/backends/gfx_sdl2.cpp
 @@ -9,6 +9,11 @@
  #endif
-
+ 
  #include "ship/Context.h"
 +#ifdef __IOS__
 +#include "ship/audio/Audio.h"
@@ -385,7 +938,7 @@ index eb5df8b2..5a2b85a7 100644
  #define GL_GLEXT_PROTOTYPES 1
 @@ -45,6 +52,25 @@ LONG_PTR SDL_WndProc;
  #endif
-
+ 
  namespace Fast {
 +#ifdef __IOS__
 +static void SaveIOSConfiguration() {
@@ -411,7 +964,7 @@ index eb5df8b2..5a2b85a7 100644
      SDL_SCANCODE_ESCAPE,
 @@ -207,6 +233,16 @@ GfxWindowBackendSDL2::~GfxWindowBackendSDL2() {
  }
-
+ 
  void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {
 +#ifdef __IOS__
 +    // UIKit owns the full-screen drawable. Desktop display-mode switching can
@@ -429,7 +982,7 @@ index eb5df8b2..5a2b85a7 100644
 @@ -227,7 +263,7 @@ void GfxWindowBackendSDL2::SetFullscreenImpl(bool on, bool call_callback) {
          }
      }
-
+ 
 -#if defined(__APPLE__)
 +#if defined(__APPLE__) && !defined(__IOS__)
      // Implement fullscreening with native macOS APIs
@@ -437,7 +990,7 @@ index eb5df8b2..5a2b85a7 100644
          toggleNativeMacOSFullscreen(mWnd);
 @@ -505,7 +541,7 @@ void GfxWindowBackendSDL2::SetMouseCallbacks(bool (*onMouseButtonDown)(int btn),
  }
-
+ 
  void GfxWindowBackendSDL2::GetDimensions(uint32_t* width, uint32_t* height, int32_t* posX, int32_t* posY) {
 -#ifdef __APPLE__
 +#if defined(__APPLE__) && !defined(__IOS__)
@@ -500,10 +1053,7 @@ index eb5df8b2..5a2b85a7 100644
          case SDL_QUIT:
              Close();
              break;
-@@ -613,15 +688,15 @@ void GfxWindowBackendSDL2::HandleSingleEvent(SDL_Event& event) {
- void GfxWindowBackendSDL2::HandleEvents() {
-     SDL_Event event;
-     SDL_PumpEvents();
+@@ -616,12 +691,12 @@ void GfxWindowBackendSDL2::HandleEvents() {
      while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_FIRSTEVENT, SDL_CONTROLLERDEVICEADDED - 1) > 0) {
          HandleSingleEvent(event);
      }
@@ -511,7 +1061,7 @@ index eb5df8b2..5a2b85a7 100644
 +    while (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_CONTROLLERDEVICEREMAPPED + 1, SDL_LASTEVENT) > 0) {
          HandleSingleEvent(event);
      }
-
+ 
      // resync fullscreen state
 -#ifdef __APPLE__
 +#if defined(__APPLE__) && !defined(__IOS__)
@@ -520,7 +1070,7 @@ index eb5df8b2..5a2b85a7 100644
          mFullScreen = nextFullscreenState;
 @@ -633,7 +708,11 @@ void GfxWindowBackendSDL2::HandleEvents() {
  }
-
+ 
  bool GfxWindowBackendSDL2::IsFrameReady() {
 +#ifdef __IOS__
 +    return !mIsBackgrounded;
@@ -528,7 +1078,7 @@ index eb5df8b2..5a2b85a7 100644
      return true;
 +#endif
  }
-
+ 
  static uint64_t qpc_to_100ns(uint64_t qpc) {
 diff --git a/src/libultraship/bridge/windowbridge.cpp b/src/libultraship/bridge/windowbridge.cpp
 index bfa5e7ea..1e3ba376 100644
@@ -537,17 +1087,17 @@ index bfa5e7ea..1e3ba376 100644
 @@ -2,6 +2,9 @@
  #include "ship/window/Window.h"
  #include "ship/Context.h"
-
+ 
 +#include <chrono>
 +#include <thread>
 +
  extern "C" {
-
+ 
  uint32_t WindowGetWidth() {
 @@ -20,6 +23,15 @@ bool WindowIsRunning() {
      return Ship::Context::GetInstance()->GetWindow()->IsRunning();
  }
-
+ 
 +void WindowWaitForFrameReady() {
 +    auto window = Ship::Context::GetInstance()->GetWindow();
 +
@@ -580,7 +1130,7 @@ index 0c36b4f4..7778d370 100644
 @@ -398,11 +398,6 @@ std::string Context::GetAppBundlePath() {
      }
  #endif
-
+ 
 -#ifdef __IOS__
 -    const char* home = getenv("HOME");
 -    return std::string(home) + "/Documents";
@@ -596,7 +1146,7 @@ index 6efce2c2..b715a25f 100644
 @@ -62,4 +62,10 @@ std::shared_ptr<std::vector<AudioBackend>> Audio::GetAvailableAudioBackends() {
      return mAvailableAudioBackends;
  }
-
+ 
 +void Audio::SetPaused(bool paused) {
 +    if (mAudioPlayer != nullptr) {
 +        mAudioPlayer->SetPaused(paused);
@@ -610,7 +1160,7 @@ index c74c8840..081e678e 100644
 +++ b/src/ship/audio/SDLAudioPlayer.cpp
 @@ -9,6 +9,9 @@ SDLAudioPlayer::~SDLAudioPlayer() {
  }
-
+ 
  bool SDLAudioPlayer::DoInit() {
 +#ifdef __IOS__
 +    SDL_SetHint(SDL_HINT_AUDIO_CATEGORY, "playback");
@@ -620,7 +1170,7 @@ index c74c8840..081e678e 100644
          return false;
 @@ -35,9 +38,20 @@ int SDLAudioPlayer::Buffered() {
  }
-
+ 
  void SDLAudioPlayer::Play(const uint8_t* buf, size_t len) {
 -    if (Buffered() < 6000) {
 +    if (!mPaused && Buffered() < 6000) {
@@ -640,106 +1190,8 @@ index c74c8840..081e678e 100644
 +    }
 +}
  } // namespace Ship
-diff --git a/src/ship/port/mobile/MobileImpl.cpp b/src/ship/port/mobile/MobileImpl.cpp
-index 34391d1b..8d73c9cb 100644
---- a/src/ship/port/mobile/MobileImpl.cpp
-+++ b/src/ship/port/mobile/MobileImpl.cpp
-@@ -1,7 +1,6 @@
- #if defined(__ANDROID__) || defined(__IOS__)
--#include "MobileImpl.h"
-+#include "ship/port/mobile/MobileImpl.h"
- #include <SDL2/SDL.h>
--#include "ship/public/bridge/consolevariablebridge.h"
-
- #include <imgui_internal.h>
-
-diff --git a/src/ship/window/gui/Gui.cpp b/src/ship/window/gui/Gui.cpp
-index 17f0c2b0..9c39077a 100644
---- a/src/ship/window/gui/Gui.cpp
-+++ b/src/ship/window/gui/Gui.cpp
-@@ -7,6 +7,10 @@
- #include <string>
- #include <vector>
-
-+#ifdef __IOS__
-+extern "C" void MaskPad_SetTouchControlsMenuVisible(int visible);
-+#endif
-+
- #include "ship/config/Config.h"
- #include "ship/Context.h"
- #include "ship/config/ConsoleVariable.h"
-@@ -31,7 +35,7 @@
- #endif
-
- #if defined(__ANDROID__) || defined(__IOS__)
--#include "port/mobile/MobileImpl.h"
-+#include "ship/port/mobile/MobileImpl.h"
- #endif
-
- #ifdef ENABLE_OPENGL
-@@ -583,6 +587,10 @@ void Gui::DrawMenu() {
-         GetMenu()->Draw();
-     }
-
-+#ifdef __IOS__
-+    MaskPad_SetTouchControlsMenuVisible(GetMenuOrMenubarVisible());
-+#endif
-+
-     for (auto& windowIter : mGuiWindows) {
-         windowIter.second->Update();
-         windowIter.second->Draw();
-diff --git a/include/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.h b/include/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.h
-index 89c05b55..8da223bf 100644
---- a/include/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.h
-+++ b/include/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.h
-@@ -4,6 +4,7 @@
- #include <unordered_set>
- #include <vector>
- #include <string>
-+#include <cstdint>
- #include <SDL2/SDL.h>
- 
- namespace Ship {
-@@ -22,9 +23,15 @@ class ConnectedPhysicalDeviceManager {
- 
-     void HandlePhysicalDeviceConnect(int32_t sdlDeviceIndex);
-     void HandlePhysicalDeviceDisconnect(int32_t sdlJoystickInstanceId);
--    void RefreshConnectedSDLGamepads();
-+    void HandlePhysicalDeviceRemap(int32_t sdlJoystickInstanceId);
-+    void RefreshConnectedSDLGamepads(const char* reason = "manual");
- 
-   private:
-+    static constexpr uint8_t kPortCount = 4;
-+
-+    bool GamepadHandleIsCurrent(int32_t instanceId, SDL_GameController* gamepad) const;
-+    void CloseGamepad(int32_t instanceId, SDL_GameController* gamepad, const char* reason);
-+    void AssignNewGamepadToFirstFreePort(int32_t instanceId);
-     std::unordered_map<int32_t, SDL_GameController*> mConnectedSDLGamepads;
-     std::unordered_map<int32_t, std::string> mConnectedSDLGamepadNames;
-     std::unordered_map<uint8_t, std::unordered_set<int32_t>> mIgnoredInstanceIds;
-diff --git a/include/ship/controller/physicaldevice/SDLAddRemoveDeviceEventHandler.h b/include/ship/controller/physicaldevice/SDLAddRemoveDeviceEventHandler.h
-index 63c3afa8..6aadf725 100644
---- a/include/ship/controller/physicaldevice/SDLAddRemoveDeviceEventHandler.h
-+++ b/include/ship/controller/physicaldevice/SDLAddRemoveDeviceEventHandler.h
-@@ -1,6 +1,7 @@
- #pragma once
- 
- #include "ship/window/gui/GuiWindow.h"
-+#include <cstdint>
- 
- namespace Ship {
- 
-@@ -13,5 +14,8 @@ class SDLAddRemoveDeviceEventHandler : public GuiWindow {
-     void InitElement() override;
-     void DrawElement() override;
-     void UpdateElement() override;
-+
-+  private:
-+    uint32_t mLastReconcileTicks = 0;
- };
- } // namespace Ship
 diff --git a/src/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.cpp b/src/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.cpp
-index 7f0397e2..bed82a70 100644
+index 7f0397e2..e1d78305 100644
 --- a/src/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.cpp
 +++ b/src/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.cpp
 @@ -1,11 +1,16 @@
@@ -849,7 +1301,7 @@ index 7f0397e2..bed82a70 100644
          SDL_JoystickGUID deviceGUID = SDL_JoystickGetDeviceGUID(i);
          if (SDL_memcmp(&deviceGUID, &sZeroGuid, sizeof(deviceGUID)) == 0) {
              SPDLOG_WARN(
-@@ -69,7 +128,7 @@ void ConnectedPhysicalDeviceManager::RefreshConnectedSDLGamepads() {
+@@ -69,29 +128,83 @@ void ConnectedPhysicalDeviceManager::RefreshConnectedSDLGamepads() {
          SDL_JoystickGetGUIDString(deviceGUID, deviceGuidCStr, sizeof(deviceGuidCStr));
  
          if (!SDL_IsGameController(i)) {
@@ -858,7 +1310,6 @@ index 7f0397e2..bed82a70 100644
                          "This is likely due to a missing mapping string in gamecontrollerdb.txt."
                          "Refer to https://github.com/mdqinc/SDL_GameControllerDB for more information.",
                          deviceGuidCStr);
-@@ -76,22 +135,76 @@ void ConnectedPhysicalDeviceManager::RefreshConnectedSDLGamepads() {
              continue;
          }
  
@@ -985,3 +1436,51 @@ index 2e519f81..e0e45b10 100644
 +    }
  }
  } // namespace Ship
+diff --git a/src/ship/port/mobile/MobileImpl.cpp b/src/ship/port/mobile/MobileImpl.cpp
+index 34391d1b..8d73c9cb 100644
+--- a/src/ship/port/mobile/MobileImpl.cpp
++++ b/src/ship/port/mobile/MobileImpl.cpp
+@@ -1,7 +1,6 @@
+ #if defined(__ANDROID__) || defined(__IOS__)
+-#include "MobileImpl.h"
++#include "ship/port/mobile/MobileImpl.h"
+ #include <SDL2/SDL.h>
+-#include "ship/public/bridge/consolevariablebridge.h"
+ 
+ #include <imgui_internal.h>
+ 
+diff --git a/src/ship/window/gui/Gui.cpp b/src/ship/window/gui/Gui.cpp
+index 17f0c2b0..9c39077a 100644
+--- a/src/ship/window/gui/Gui.cpp
++++ b/src/ship/window/gui/Gui.cpp
+@@ -7,6 +7,10 @@
+ #include <string>
+ #include <vector>
+ 
++#ifdef __IOS__
++extern "C" void MaskPad_SetTouchControlsMenuVisible(int visible);
++#endif
++
+ #include "ship/config/Config.h"
+ #include "ship/Context.h"
+ #include "ship/config/ConsoleVariable.h"
+@@ -31,7 +35,7 @@
+ #endif
+ 
+ #if defined(__ANDROID__) || defined(__IOS__)
+-#include "port/mobile/MobileImpl.h"
++#include "ship/port/mobile/MobileImpl.h"
+ #endif
+ 
+ #ifdef ENABLE_OPENGL
+@@ -583,6 +587,10 @@ void Gui::DrawMenu() {
+         GetMenu()->Draw();
+     }
+ 
++#ifdef __IOS__
++    MaskPad_SetTouchControlsMenuVisible(GetMenuOrMenubarVisible());
++#endif
++
+     for (auto& windowIter : mGuiWindows) {
+         windowIter.second->Update();
+         windowIter.second->Draw();
