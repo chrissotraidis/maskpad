@@ -21,8 +21,6 @@
   <a href="https://discord.gg/xwHfUD2bxW"><img alt="Join the MaskPad Discord" src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&amp;logoColor=white"></a>
 </p>
 
-![MaskPad sword combat on a physical iPad with transparent touch controls](docs/readme/maskpad-hero-ipad.jpg)
-
 MaskPad packages the full
 [2 Ship 2 Harkinian](https://github.com/HarbourMasters/2ship2harkinian)
 source port as a native landscape iOS/iPadOS app. It renders through Metal,
@@ -195,41 +193,6 @@ See [`docs/controls.md`](docs/controls.md) for the full behavior contract and
 the opacity behavior. [`docs/testing.md`](docs/testing.md) records the exact
 test evidence.
 
-## Current screenshots
-
-<table>
-  <tr>
-    <td width="50%">
-      <img src="docs/readme/maskpad-swamp-ipad.jpg" alt="MaskPad exploration on a physical iPad with the complete touch controller">
-    </td>
-    <td width="50%">
-      <img src="docs/readme/maskpad-clock-town-story-ipad.jpg" alt="MaskPad Clock Town character scene on a physical iPad">
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Touch-first exploration</strong><br>The complete landscape controller stays within thumb reach.</td>
-    <td align="center"><strong>Story and minigames</strong><br>Transparent targets preserve the original HUD and scene.</td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="docs/readme/maskpad-clock-town-ipad.jpg" alt="MaskPad Clock Town gameplay on a physical iPad">
-    </td>
-    <td width="50%">
-      <img src="docs/readme/maskpad-stock-pot-inn-ipad.jpg" alt="MaskPad Stock Pot Inn dialogue on a physical iPad">
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Clock Town</strong><br>Native Metal rendering across busy outdoor areas.</td>
-    <td align="center"><strong>Full adventure</strong><br>Dialogue, items, saves, and touch input in the signed iPad build.</td>
-  </tr>
-</table>
-
-The hero and gallery were captured from the current signed build on a physical
-12.9-inch iPad Pro (6th generation) running iPadOS 26.5.2, using ignored,
-user-owned game data. No ROM or generated game archive is present in this
-repository. Capture provenance is recorded in
-[`docs/readme/README.md`](docs/readme/README.md).
-
 ## What works
 
 | Area | Current result |
@@ -359,7 +322,6 @@ therefore source-available, not broadly redistributable open source. See
 | [`docs/testing.md`](docs/testing.md) | Exact Simulator, gameplay, build, and package evidence |
 | [`docs/release-checklist.md`](docs/release-checklist.md) | Source and IPA publication gates |
 | [`docs/remaining-work.md`](docs/remaining-work.md) | Evidence ledger and remaining physical gates |
-| [`docs/readme/`](docs/readme/) | Approved screenshot slots and capture guidance |
 
 Generated source trees, builds, artifacts, ROMs, and ROM-derived archives are
 ignored and must never be committed.
