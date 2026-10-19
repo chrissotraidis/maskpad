@@ -7,10 +7,6 @@
 </p>
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/chrissotraidis"><img alt="Buy me a coffee" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="36"></a>
-</p>
-
-<p align="center">
   <a href="https://github.com/chrissotraidis/maskpad/actions/workflows/ios-build.yml"><img alt="MaskPad iOS build" src="https://github.com/chrissotraidis/maskpad/actions/workflows/ios-build.yml/badge.svg"></a>
   <img alt="iOS 15+" src="https://img.shields.io/badge/iOS%20%2F%20iPadOS-15%2B-0A84FF?logo=apple">
   <img alt="Metal renderer" src="https://img.shields.io/badge/renderer-Metal-5E5CE6">
@@ -353,3 +349,12 @@ downloads, or playable ROM-derived data.
 This project builds on 2 Ship 2 Harkinian, libultraship, ZAPDTR, OTRExporter,
 the Majora's Mask decompilation project, SDL, and their contributors. All
 projects, copyrights, and trademarks belong to their respective owners.
+
+## Legal
+
+MaskPad is an unofficial, fan-made project. It is not affiliated with, endorsed
+by, or sponsored by Nintendo. The Legend of Zelda: Majora's Mask and related
+names and marks are trademarks of Nintendo (and their respective owners). This
+repository contains no game data, ROMs, or extracted assets. To use it, you need
+your own legally obtained copy of the game, and you build it yourself on your
+own machine. Please don't share game files or builds made from them.
