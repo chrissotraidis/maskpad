@@ -6,10 +6,12 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <SDL2/SDL.h>
 #include "ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.h"
+#include "MaskPadTouchVisibility.h"
 
 struct SDL_Joystick {
     int32_t instanceId;
@@ -216,6 +218,70 @@ int main() {
     }
 
     assert(gOpenHandles.empty());
+    ResetFakeSDL();
+
+    // Touch auto-hide follows the manager's player 1 assignment, the same
+    // query the game makes each frame.
+    {
+        const std::unordered_map<int32_t, MaskPad::GamepadProfile> profiles = {
+            { 40, { true, true, true } }, { 50, { true, true, true } }, { 60, { false, false, true } },
+        };
+        AddDevice(40, "Connected Before Launch");
+        Ship::ConnectedPhysicalDeviceManager manager;
+        const auto touchVisible = [&](const MaskPad::TouchPreferences& preferences) {
+            bool playerOneReady = false;
+            for (const auto& [instanceId, gamepad] : manager.GetConnectedSDLGamepadsForPort(0)) {
+                playerOneReady = playerOneReady || MaskPad::IsGameplayGamepad(profiles.at(instanceId));
+            }
+            return MaskPad::TouchGameplayControlsVisible(preferences, playerOneReady);
+        };
+        MaskPad::TouchPreferences preferences; // no saved choice
+        assert(!touchVisible(preferences));
+
+        // Losing player 2 keeps player 1's controller and the hide.
+        AddDevice(50, "Player Two");
+        manager.HandlePhysicalDeviceConnect(1);
+        RemoveDeviceWithoutEvent(50);
+        manager.RefreshConnectedSDLGamepads("active-check");
+        assert(!touchVisible(preferences));
+
+        // A controller that belongs to player 2 does not hide player 1's touch.
+        AddDevice(50, "Player Two");
+        manager.HandlePhysicalDeviceConnect(1);
+        RemoveDeviceWithoutEvent(40);
+        manager.RefreshConnectedSDLGamepads("active-check");
+        ExpectOnly(manager, 1, { 50 });
+        assert(touchVisible(preferences));
+
+        // Preference changes apply to the current controller at once.
+        AddDevice(40, "Player One Returns");
+        manager.RefreshConnectedSDLGamepads("active-check");
+        ExpectOnly(manager, 0, { 40 });
+        assert(!touchVisible(preferences));
+        preferences.autoHideWithController = false;
+        assert(touchVisible(preferences));
+        preferences.autoHideWithController = true;
+
+        // Show recovers a manual hide with the controller still connected,
+        // turns auto-hide off and leaves player ownership alone.
+        preferences.touchControls = false;
+        assert(!touchVisible(preferences));
+        preferences = MaskPad::ShowTouchControls(preferences);
+        assert(preferences.touchControls && !preferences.autoHideWithController);
+        assert(touchVisible(preferences));
+        ExpectOnly(manager, 0, { 40 });
+        ExpectOnly(manager, 1, { 50 });
+        preferences.autoHideWithController = true;
+        assert(!touchVisible(preferences));
+
+        // A menu-only profile on player 1 cannot play, so touch stays.
+        RemoveDeviceWithoutEvent(40);
+        RemoveDeviceWithoutEvent(50);
+        AddDevice(60, "Menu Remote");
+        manager.RefreshConnectedSDLGamepads("active-check");
+        ExpectOnly(manager, 0, { 60 });
+        assert(touchVisible(preferences));
+    }
     ResetFakeSDL();
     std::cout << "MaskPad controller reconciliation tests passed.\n";
     return 0;

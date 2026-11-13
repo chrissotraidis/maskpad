@@ -5,8 +5,11 @@
 #include <SDL.h>
 
 #include "MaskPadTouchControls.h"
+#include "MaskPadTouchVisibility.h"
 
 static std::atomic_bool sTouchControlsDesired(false);
+static std::atomic_bool sAutoHideTouchControls(true);
+static std::atomic_bool sPlayerOneGamepadReady(false);
 static std::atomic_bool sCustomizableTouchControlsDesired(false);
 static std::atomic<float> sTouchControlsOpacity(1.0f);
 static std::atomic_bool sTouchControlsMenuVisible(false);
@@ -19,6 +22,14 @@ static std::atomic<float> sNativeHudButtonWidths[MASKPAD_HUD_BUTTON_COUNT];
 static void MaskPad_ApplyTouchControlsState(void);
 static UIWindow* MaskPad_ActiveWindow(void);
 static void MaskPad_InstallLifecycleObservers(void);
+
+// The saved preferences plus libultraship's player 1 controller decide whether
+// gameplay controls exist at all; the menu and layout editor only suppress
+// them temporarily.
+static bool MaskPad_TouchGameplayControlsVisible(void) {
+    return MaskPad::TouchGameplayControlsVisible(
+        { sTouchControlsDesired.load(), sAutoHideTouchControls.load() }, sPlayerOneGamepadReady.load());
+}
 #if defined(MASKPAD_UI_TEST_HARNESS)
 static UIView* sUITestNativeHudAProbe;
 static UIView* sUITestGameplayInputProbe;
@@ -165,7 +176,9 @@ static void MaskPad_PushKey(SDL_Scancode scancode, BOOL pressed) {
 }
 
 - (void)beginInput {
-    if (self.layoutEditing || self.inputPressed) {
+    // A finger that was already down keeps reporting to a removed control;
+    // hidden controls must not start input.
+    if (self.layoutEditing || self.inputPressed || self.window == nil) {
         return;
     }
     self.inputGeneration++;
@@ -414,7 +427,7 @@ static MaskPadTouchButton* sMenuButton;
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
-    if (self.layoutEditing) {
+    if (self.layoutEditing || self.window == nil) {
         return;
     }
     UITouch* touch = touches.anyObject;
@@ -424,7 +437,7 @@ static MaskPadTouchButton* sMenuButton;
 }
 
 - (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
-    if (self.layoutEditing) {
+    if (self.layoutEditing || self.window == nil) {
         return;
     }
     UITouch* touch = touches.anyObject;
@@ -1238,7 +1251,7 @@ static MaskPadTouchButton* sMenuButton;
 
 - (void)applyNativeHudVisualState {
     const BOOL hideUIKitFaceButtons =
-        sTouchControlsDesired.load() && sNativeHudTouchDesired.load() &&
+        MaskPad_TouchGameplayControlsVisible() && sNativeHudTouchDesired.load() &&
         sNativeHudTouchGameplayActive.load() && !sTouchControlsMenuVisible.load() &&
         !sLayoutEditorActive.load();
     for (MaskPadTouchButton* button in
@@ -1535,14 +1548,18 @@ static void MaskPad_ApplyTouchControlsState(void) {
     }
 
     MaskPad_InstallMenuButton(window);
-    if (!sTouchControlsDesired.load() || sTouchControlsMenuVisible.load()) {
+    const BOOL gameplayControlsVisible = MaskPad_TouchGameplayControlsVisible();
+    if (!gameplayControlsVisible || sTouchControlsMenuVisible.load()) {
+        // Release held buttons, the stick and a latched Z before removing the
+        // overlay so no input or hit target survives the hide. The menu button
+        // stays installed above.
         if (sTouchOverlay.layoutEditing) {
             [sTouchOverlay endLayoutEditing];
         }
         [sTouchOverlay cancelAllInputs];
         [sTouchOverlay removeFromSuperview];
         sTouchOverlay = nil;
-        if (!sTouchControlsDesired.load()) {
+        if (!gameplayControlsVisible) {
             sLayoutEditorRequested = NO;
         }
         return;
@@ -1609,9 +1626,9 @@ void MaskPad_SetTouchControlsOpacity(float opacity) {
 
 void MaskPad_BeginTouchLayoutEditing(void) {
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (!sTouchControlsDesired.load() ||
+        if (!MaskPad_TouchGameplayControlsVisible() ||
             !sCustomizableTouchControlsDesired.load()) {
-            SDL_Log("[MaskPad] customizable touch controls are disabled");
+            SDL_Log("[MaskPad] customizable touch controls are hidden or disabled");
             return;
         }
         sLayoutEditorRequested = YES;
@@ -1772,6 +1789,46 @@ void MaskPad_SetTouchControlsMenuVisible(int visible) {
     });
 }
 
+void MaskPad_SetAutoHideTouchControls(int enabled) {
+    sAutoHideTouchControls.store(enabled != 0);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MaskPad_ApplyTouchControlsState();
+    });
+}
+
+void MaskPad_SetPlayerOneGamepadReady(int ready) {
+    const bool gamepadReady = ready != 0;
+    if (sPlayerOneGamepadReady.exchange(gamepadReady) == gamepadReady) {
+        return;
+    }
+    SDL_Log("[MaskPad] player 1 gameplay controller %s", gamepadReady ? "connected" : "not connected");
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MaskPad_ApplyTouchControlsState();
+    });
+}
+
+void MaskPad_ShowTouchControls(void) {
+    const MaskPad::TouchPreferences preferences =
+        MaskPad::ShowTouchControls({ sTouchControlsDesired.load(), sAutoHideTouchControls.load() });
+    sTouchControlsDesired.store(preferences.touchControls);
+    sAutoHideTouchControls.store(preferences.autoHideWithController);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MaskPad_InstallLifecycleObservers();
+        SDL_Log("[MaskPad] touch controls shown; auto-hide with controller turned off");
+        if (sTouchControlsMenuVisible.load()) {
+            // Close Settings the same way the menu button opens it so the
+            // restored controls are usable at once.
+            MaskPad_PushKey(SDL_SCANCODE_ESCAPE, YES);
+            MaskPad_PushKey(SDL_SCANCODE_ESCAPE, NO);
+        }
+        MaskPad_ApplyTouchControlsState();
+    });
+}
+
+int MaskPad_TouchControlsHidden(void) {
+    return !MaskPad_TouchGameplayControlsVisible();
+}
+
 void MaskPad_SetNativeHudTouchEnabled(int enabled) {
     sNativeHudTouchDesired.store(enabled != 0);
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -1803,7 +1860,7 @@ void MaskPad_SetNativeHudTouchGameplayActive(int active) {
 
 int MaskPad_GetNativeHudButtonCenter(int button, float aspectRatio, float* x, float* y) {
     if (button < 0 || button >= MASKPAD_HUD_BUTTON_COUNT || x == nullptr || y == nullptr ||
-        aspectRatio <= 0.0f || !sTouchControlsDesired.load() || !sNativeHudTouchDesired.load() ||
+        aspectRatio <= 0.0f || !MaskPad_TouchGameplayControlsVisible() || !sNativeHudTouchDesired.load() ||
         !sNativeHudTouchGameplayActive.load() || sTouchControlsMenuVisible.load() ||
         sLayoutEditorActive.load()) {
         return 0;
@@ -1824,7 +1881,7 @@ int MaskPad_GetNativeHudButtonCenter(int button, float aspectRatio, float* x, fl
 
 float MaskPad_GetNativeHudButtonScale(int button, float aspectRatio) {
     if (button < 0 || button >= MASKPAD_HUD_BUTTON_COUNT || aspectRatio <= 0.0f ||
-        !sTouchControlsDesired.load() || !sNativeHudTouchDesired.load() ||
+        !MaskPad_TouchGameplayControlsVisible() || !sNativeHudTouchDesired.load() ||
         !sNativeHudTouchGameplayActive.load() || sTouchControlsMenuVisible.load() ||
         sLayoutEditorActive.load()) {
         return 1.0f;
@@ -1846,7 +1903,7 @@ float MaskPad_GetNativeHudButtonScale(int button, float aspectRatio) {
 
 int MaskPad_GetNativeHudTouchAlpha(int alpha) {
     const bool nativeTouchArtworkVisible =
-        sTouchControlsDesired.load() && sNativeHudTouchDesired.load() &&
+        MaskPad_TouchGameplayControlsVisible() && sNativeHudTouchDesired.load() &&
         sNativeHudTouchGameplayActive.load() && !sTouchControlsMenuVisible.load() &&
         !sLayoutEditorActive.load();
     if (!nativeTouchArtworkVisible) {

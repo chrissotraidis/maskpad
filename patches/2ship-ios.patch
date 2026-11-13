@@ -59,7 +59,7 @@ index 5281c4061..cc43618cf 100644
          Ship::Context::GetInstance()->GetControlDeck()->GetControllerByPort(port)->GetGyro()->GetGyroMapping();
      if (mapping != nullptr) {
 diff --git a/mm/2s2h/BenGui/BenMenu.cpp b/mm/2s2h/BenGui/BenMenu.cpp
-index 1a5ad515b..6099c515f 100644
+index 1a5ad515b..414c95be7 100644
 --- a/mm/2s2h/BenGui/BenMenu.cpp
 +++ b/mm/2s2h/BenGui/BenMenu.cpp
 @@ -17,6 +17,9 @@
@@ -94,11 +94,22 @@ index 1a5ad515b..6099c515f 100644
      AddWidget(path, "Enable Vsync", WIDGET_CVAR_CHECKBOX)
          .CVar(CVAR_VSYNC_ENABLED)
          .PreFunc([](WidgetInfo& info) { info.isHidden = mBenMenu->disabledMap.at(DISABLE_FOR_NO_VSYNC).active; })
-@@ -576,6 +583,71 @@ void BenMenu::AddSettings() {
+@@ -576,6 +583,92 @@ void BenMenu::AddSettings() {
 
      path.sidebarName = "Controls";
      AddSidebarEntry("Settings", "Controls", 1);
 +#ifdef __IOS__
++    AddWidget(path, "Show Touch Controls", WIDGET_BUTTON)
++        .PreFunc([](WidgetInfo& info) { info.isHidden = !MaskPad_TouchControlsHidden(); })
++        .Callback([](WidgetInfo& info) {
++            CVarSetInteger("gSettings.MaskPad.TouchControls", 1);
++            CVarSetInteger("gSettings.MaskPad.AutoHideTouchControls", 0);
++            CVarSave();
++            MaskPad_ShowTouchControls();
++        })
++        .Options(ButtonOptions().Tooltip(
++            "Closes Settings and shows the touch controller now, even with a controller connected. Turns off "
++            "auto-hide until you turn it back on."));
 +    AddWidget(path, "Touch Controls", WIDGET_CVAR_CHECKBOX)
 +        .CVar("gSettings.MaskPad.TouchControls")
 +        .Callback([](WidgetInfo& info) {
@@ -107,7 +118,17 @@ index 1a5ad515b..6099c515f 100644
 +        })
 +        .Options(CheckboxOptions()
 +                     .DefaultValue(true)
-+                     .Tooltip("Shows the touch controller. Disable it when using a physical controller."));
++                     .Tooltip("Shows the touch controller. Turn it off to hide it; Show Touch Controls brings it "
++                              "back."));
++    AddWidget(path, "Auto-hide Touch Controls with Controller", WIDGET_CVAR_CHECKBOX)
++        .CVar("gSettings.MaskPad.AutoHideTouchControls")
++        .Callback([](WidgetInfo& info) {
++            MaskPad_SetAutoHideTouchControls(CVarGetInteger("gSettings.MaskPad.AutoHideTouchControls", 1));
++        })
++        .Options(CheckboxOptions()
++                     .DefaultValue(true)
++                     .Tooltip("Hides the touch controller while a controller with a stick, face buttons and "
++                              "Start is assigned to player 1, and shows it again when that controller leaves."));
 +    AddWidget(path, "Touch Control Transparency", WIDGET_CVAR_CHECKBOX)
 +        .CVar("gSettings.MaskPad.TouchControlTransparency")
 +        .Callback([](WidgetInfo& info) {
@@ -152,11 +173,11 @@ index 1a5ad515b..6099c515f 100644
 +    AddWidget(path, "Customize Touch Layout", WIDGET_BUTTON)
 +        .PreFunc([](WidgetInfo& info) {
 +            const bool available =
-+                CVarGetInteger("gSettings.MaskPad.TouchControls", 1) &&
++                !MaskPad_TouchControlsHidden() &&
 +                !CVarGetInteger("gSettings.MaskPad.LegacyFixedTouchControls", 0);
 +            info.options->disabled = !available;
 +            info.options->disabledTooltip =
-+                "Enable Touch Controls and turn off Legacy Fixed Touch Controls first.";
++                "Show Touch Controls and turn off Legacy Fixed Touch Controls first.";
 +        })
 +        .Callback([](WidgetInfo& info) { MaskPad_BeginTouchLayoutEditing(); })
 +        .Options(ButtonOptions().Tooltip(
@@ -210,10 +231,10 @@ index f63d4589b..09e2192ca 100644
      }
      float columnWidth = (sectionWidth - style.ItemSpacing.x * columns) / columns;
 diff --git a/mm/2s2h/BenPort.cpp b/mm/2s2h/BenPort.cpp
-index c9a5ad156..f0bceac9c 100644
+index c9a5ad156..df59c04e6 100644
 --- a/mm/2s2h/BenPort.cpp
 +++ b/mm/2s2h/BenPort.cpp
-@@ -64,6 +64,11 @@ CrowdControl* CrowdControl::Instance;
+@@ -64,6 +64,14 @@ CrowdControl* CrowdControl::Instance;
  #include "2s2h/ShipUtils.h"
  #include "2s2h/ShipInit.hpp"
  #include "2s2h/PresetManager/PresetManager.h"
@@ -221,11 +242,14 @@ index c9a5ad156..f0bceac9c 100644
 +#include <cstdlib>
 +#include <cstring>
 +#include "ios/MaskPadTouchControls.h"
++#include "ios/MaskPadTouchVisibility.h"
++#include <SDL_gamecontroller.h>
++#include <TargetConditionals.h>
 +#endif
 
  // Resource Types/Factories
  #include <ship/resource/type/Blob.h>
-@@ -660,6 +665,14 @@ void CheckAndCreateModFolder() {
+@@ -660,6 +668,14 @@ void CheckAndCreateModFolder() {
 
  extern "C" void InitOTR() {
 
@@ -240,7 +264,7 @@ index c9a5ad156..f0bceac9c 100644
  #ifdef __SWITCH__
      Ship::Switch::Init(Ship::PreInitPhase);
  #elif defined(__WIIU__)
-@@ -694,10 +707,22 @@ extern "C" void InitOTR() {
+@@ -694,12 +710,24 @@ extern "C" void InitOTR() {
              exit(1);
          }
 
@@ -264,7 +288,9 @@ index c9a5ad156..f0bceac9c 100644
              }
 +#endif
              extract.CallZapd(installPath, Ship::Context::GetAppDirectoryPath(appShortName));
-@@ -708,6 +733,32 @@ extern "C" void InitOTR() {
+         } else {
+             exit(1);
+@@ -708,6 +736,36 @@ extern "C" void InitOTR() {
  #endif
 
      OTRGlobals::Instance = new OTRGlobals();
@@ -280,6 +306,10 @@ index c9a5ad156..f0bceac9c 100644
 +    CVarRegisterInteger("gSettings.MaskPad.TouchControls", 1);
 +    MaskPad_SetTouchControlsEnabled(
 +        CVarGetInteger("gSettings.MaskPad.TouchControls", 1));
++    // Defaults on only when the player has never saved a choice.
++    CVarRegisterInteger("gSettings.MaskPad.AutoHideTouchControls", 1);
++    MaskPad_SetAutoHideTouchControls(
++        CVarGetInteger("gSettings.MaskPad.AutoHideTouchControls", 1));
 +    CVarRegisterInteger("gSettings.MaskPad.TouchControlTransparency", 0);
 +    CVarRegisterFloat("gSettings.MaskPad.TouchControlOpacity", 0.5f);
 +    MaskPad_SetTouchControlsOpacity(
@@ -297,6 +327,36 @@ index c9a5ad156..f0bceac9c 100644
      GameInteractor::Instance = new GameInteractor();
      AudioCollection::Instance = new AudioCollection();
      LoadGuiTextures();
+@@ -814,6 +872,29 @@ extern "C" uint64_t GetUnixTimestamp() {
+ }
+
+ extern "C" void Graph_StartFrame() {
++#if defined(__IOS__) && !TARGET_OS_SIMULATOR
++    // libultraship owns controller-to-player assignment. Touch is player 1's
++    // keyboard input, so only a complete gamepad assigned to player 1 counts.
++    // Simulator builds skip this: the Simulator always presents its own
++    // wireless MFi "Gamepad", which says nothing about a physical controller.
++    bool playerOneHasGameplayGamepad = false;
++    for (const auto& [instanceId, gamepad] : Ship::Context::GetInstance()
++                                                 ->GetControlDeck()
++                                                 ->GetConnectedPhysicalDeviceManager()
++                                                 ->GetConnectedSDLGamepadsForPort(0)) {
++        const MaskPad::GamepadProfile profile = {
++            SDL_GameControllerHasAxis(gamepad, SDL_CONTROLLER_AXIS_LEFTX) &&
++                SDL_GameControllerHasAxis(gamepad, SDL_CONTROLLER_AXIS_LEFTY),
++            SDL_GameControllerHasButton(gamepad, SDL_CONTROLLER_BUTTON_A) &&
++                SDL_GameControllerHasButton(gamepad, SDL_CONTROLLER_BUTTON_B) &&
++                SDL_GameControllerHasButton(gamepad, SDL_CONTROLLER_BUTTON_X) &&
++                SDL_GameControllerHasButton(gamepad, SDL_CONTROLLER_BUTTON_Y),
++            SDL_GameControllerHasButton(gamepad, SDL_CONTROLLER_BUTTON_START) == SDL_TRUE,
++        };
++        playerOneHasGameplayGamepad = playerOneHasGameplayGamepad || MaskPad::IsGameplayGamepad(profile);
++    }
++    MaskPad_SetPlayerOneGamepadReady(playerOneHasGameplayGamepad);
++#endif
+ #ifndef __WIIU__
+     using Ship::KbScancode;
+     int32_t dwScancode = OTRGlobals::Instance->context->GetWindow()->GetLastScancode();
 diff --git a/mm/2s2h/DeveloperTools/DeveloperTools.cpp b/mm/2s2h/DeveloperTools/DeveloperTools.cpp
 index 8cd632cef..927387edd 100644
 --- a/mm/2s2h/DeveloperTools/DeveloperTools.cpp

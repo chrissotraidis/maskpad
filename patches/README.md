@@ -2,7 +2,9 @@
 
 Apply in this order with `scripts/apply-patches.sh`:
 
-1. `2ship-ios.patch` at the pinned 2S2H root;
+1. `2ship-ios.patch` at the pinned 2S2H root. `2ship-touch-autohide.patch`
+   adds touch auto-hide and Show Touch Controls to a checkout patched before
+   them;
 2. `libultraship-ios.patch` in its pinned submodule. It includes SDL 2.32.10
    UIKit scene startup and scene orientation, which apps built with the iOS 27
    SDK need in order to open (the same backport as StarshipPad and SpaghettiPad).
