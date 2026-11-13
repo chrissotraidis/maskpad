@@ -12,15 +12,21 @@ fi
 apply_patch_once() {
     local directory="$1"
     local patch="$2"
-    local upgrade="${3:-}"
+    shift 2
+    local upgrade
     if git -C "$directory" apply --reverse --check "$patch" >/dev/null 2>&1; then
         echo "Already applied: $(basename "$patch")"
     elif git -C "$directory" apply --check "$patch"; then
         git -C "$directory" apply "$patch"
         echo "Applied: $(basename "$patch")"
-    elif [ -n "$upgrade" ] && git -C "$directory" apply --check "$upgrade" 2>/dev/null; then
-        # A checkout patched before the scene fix: add it, then require the complete patch.
-        git -C "$directory" apply "$upgrade"
+    elif [ $# -gt 0 ]; then
+        # A checkout patched by an earlier version: add each missing follow-up
+        # in order, then require the complete patch.
+        for upgrade in "$@"; do
+            if git -C "$directory" apply --check "$upgrade" 2>/dev/null; then
+                git -C "$directory" apply "$upgrade"
+            fi
+        done
         git -C "$directory" apply --reverse --check "$patch" || {
             echo "Upgrade did not produce the complete patch; source edits were preserved: $patch" >&2
             exit 1
@@ -36,7 +42,8 @@ apply_patch_once "$SOURCE" "$ROOT/patches/2ship-ios.patch"
 # libultraship-ios.patch includes SDL 2.32.10 scene startup (apps built with the
 # iOS 27 SDK need it to open); the scenes patch upgrades checkouts made before it.
 apply_patch_once "$SOURCE/libultraship" "$ROOT/patches/libultraship-ios.patch" \
-    "$ROOT/patches/libultraship-uikit-scenes.patch"
+    "$ROOT/patches/libultraship-uikit-scenes.patch" \
+    "$ROOT/patches/libultraship-sdl2-window-ownership.patch"
 apply_patch_once "$SOURCE/ZAPDTR" "$ROOT/patches/zapdtr-ios.patch"
 
 mkdir -p "$SOURCE/CMake" "$SOURCE/mm/ios"
