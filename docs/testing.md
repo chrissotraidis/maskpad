@@ -78,6 +78,11 @@ Run each gate on a representative landscape iPhone and iPad:
    produce the expected in-game behavior and release cleanly.
 5. `•••` opens the 2S2H menu and temporarily removes the gameplay overlay.
 6. Touch controls can be disabled and restored without a restart.
+   With a controller assigned to player 1, the gameplay controls hide and the
+   native HUD returns to its normal place; **Show Touch Controls** restores
+   working touch input without changing the controller's player slot, and
+   turning auto-hide back on hides it again. Simulator builds do not auto-hide
+   because the Simulator always presents its own "Gamepad".
 7. Editor move, resize, hide/show, reset, Done, and safe-area clamping work.
 8. Phone and tablet layouts persist independently.
 9. Native A/B/C HUD art follows the final touch frames.

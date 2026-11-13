@@ -20,6 +20,7 @@ trap 'rm -f "$TEST_BINARY"' EXIT
 "${CXX:-clang++}" -std=c++20 -Wall -Wextra -Werror \
     -I"$ROOT/tests/fakes" \
     -I"$SOURCE/include" \
+    -I"$ROOT/ios" \
     "$ROOT/tests/controller_reconnect_test.cpp" \
     "$SOURCE/src/ship/controller/physicaldevice/ConnectedPhysicalDeviceManager.cpp" \
     -o "$TEST_BINARY"

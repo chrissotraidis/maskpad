@@ -150,6 +150,10 @@ model instead of approximating it from screenshots:
 - **Right:** Start, L/R, and transparent A/B/C targets aligned to the native
   Majora's Mask HUD.
 - **Menu:** `•••` remains available when gameplay controls are hidden.
+- **Controllers:** **Auto-hide Touch Controls with Controller** (on unless you
+  saved another choice) hides the gameplay controls while a controller with a
+  stick, face buttons and Start is assigned to player 1, and restores them when
+  it leaves.
 - **Transparency:** enable **Touch Control Transparency** to reveal a persisted
   25%–100% opacity slider. It is off by default and never changes hit targets.
 - **Customize:** move, resize from 70%–150%, hide/show, reset, and save
@@ -277,7 +281,9 @@ route-change acceptance still need physical-device coverage.
 <summary><strong>Can I hide touch controls and get them back?</strong></summary>
 
 Yes. The persistent `•••` button keeps the menu reachable. Open
-**Settings → Controls** and toggle **Touch Controls**.
+**Settings → Controls** and toggle **Touch Controls**. While the controls are
+hidden, **Show Touch Controls** brings them back at once, even with a
+controller connected, and turns auto-hide off until you turn it on again.
 </details>
 
 <details>

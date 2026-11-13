@@ -32,7 +32,9 @@ apply_patch_once() {
     fi
 }
 
-apply_patch_once "$SOURCE" "$ROOT/patches/2ship-ios.patch"
+# 2ship-touch-autohide.patch upgrades checkouts patched before touch auto-hide.
+apply_patch_once "$SOURCE" "$ROOT/patches/2ship-ios.patch" \
+    "$ROOT/patches/2ship-touch-autohide.patch"
 # libultraship-ios.patch includes SDL 2.32.10 scene startup (apps built with the
 # iOS 27 SDK need it to open); the scenes patch upgrades checkouts made before it.
 apply_patch_once "$SOURCE/libultraship" "$ROOT/patches/libultraship-ios.patch" \

@@ -11,6 +11,10 @@ void MaskPad_SetTouchControlsOpacity(float opacity);
 void MaskPad_BeginTouchLayoutEditing(void);
 void MaskPad_RunUITestMode(void);
 void MaskPad_SetTouchControlsMenuVisible(int visible);
+void MaskPad_SetAutoHideTouchControls(int enabled);
+void MaskPad_SetPlayerOneGamepadReady(int ready);
+void MaskPad_ShowTouchControls(void);
+int MaskPad_TouchControlsHidden(void);
 void MaskPad_ShowMissingRomMessage(void);
 #if defined(MASKPAD_UI_TEST_HARNESS)
 void MaskPad_ReportConsumedInput(unsigned int buttons, int stickX, int stickY);
