@@ -9,7 +9,10 @@ Apply in this order with `scripts/apply-patches.sh`:
    UIKit scene startup and scene orientation, which apps built with the iOS 27
    SDK need in order to open (the same backport as StarshipPad and SpaghettiPad).
    `libultraship-uikit-scenes.patch` adds only that part to a checkout patched
-   before it;
+   before it. The nested SDL patch matches chrissotraidis/SDL
+   `pads/2.32.10-uikit-scenes` (090b0c5a), whose window follows the scene that
+   started SDL; `libultraship-sdl2-window-ownership.patch` upgrades a checkout
+   patched before that fix;
 3. `zapdtr-ios.patch` in its pinned submodule;
 4. copy `port/CMake/ios.cmake` and `ios/` as new source overlays.
 
