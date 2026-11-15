@@ -41,9 +41,10 @@ user-owned game copy. Their inclusion does not grant rights to the depicted
 Nintendo game material or permit its reuse as project artwork or distributable
 game data.
 
-The original forest-talisman icon in `ios/IconSource.png` was created
-specifically for MaskPad. It does not reproduce Nintendo character, logo,
-game artwork, or a recognizable game symbol.
+The masquerade-pad icon in `ios/IconSource.png` (a generic masquerade mask
+with a d-pad and buttons for eyes) is original artwork created specifically
+for MaskPad. It does not reproduce a Nintendo character, logo, game artwork,
+or a recognizable game symbol.
 
 MaskPad is an independent community project and is not affiliated with or
 endorsed by Nintendo or Harbour Masters. Written legal review remains a gate
