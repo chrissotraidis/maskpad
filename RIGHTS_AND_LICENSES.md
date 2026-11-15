@@ -41,8 +41,9 @@ user-owned game copy. Their inclusion does not grant rights to the depicted
 Nintendo game material or permit its reuse as project artwork or distributable
 game data.
 
-The original forest-talisman icon in `ios/IconSource.png` was created
-specifically for MaskPad. It does not reproduce Nintendo character, logo,
+The crescent-controller icon in `ios/IconSource.png` (a plain crescent moon
+with a generic game controller cut out of it) is original artwork created
+specifically for MaskPad. It does not reproduce a Nintendo character, logo,
 game artwork, or a recognizable game symbol.
 
 MaskPad is an independent community project and is not affiliated with or
